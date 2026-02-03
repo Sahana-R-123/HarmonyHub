@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isLoggedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+             .data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return isLoggedIn() && request.auth.uid == userId;
+    }
+
+    // USERS
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId);
+      allow create: if isLoggedIn();
+    }
+
+    // STUDIOS
+    match /studios/{studioId} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+
+      // INSTRUMENTS
+      match /instruments/{instrumentId} {
+        allow read: if isLoggedIn();
+        allow write: if isLoggedIn();
+      }
+
+      // BOOKINGS
+      match /bookings/{bookingId} {
+        // ✅ Needed for availability filters
+        allow read: if isLoggedIn();
+
+        allow create: if isLoggedIn();
+
+        allow update: if isLoggedIn();
+        allow delete: if isLoggedIn();
+          
+      }
+    }
+
+    // COLLECTION GROUP READ (ADMIN + OWNER)
+    match /{path=**}/bookings/{bookingId} {
+      allow read: if isAdmin() || isOwner(resource.data.userId);
+    }
+  }
+}
