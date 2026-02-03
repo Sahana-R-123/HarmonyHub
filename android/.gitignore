@@ -12,5 +12,3 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
-lib/firebase_options.dart
-app/google-services.json
