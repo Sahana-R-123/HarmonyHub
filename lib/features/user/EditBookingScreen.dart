@@ -241,7 +241,7 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Booking'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: Form(
         key: _formKey,

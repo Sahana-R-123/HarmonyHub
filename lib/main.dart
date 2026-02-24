@@ -16,7 +16,7 @@ import 'features/admin/AdminDashboardScreen.dart';
 import 'features/admin/add_studio_screen.dart';
 import 'features/admin/admin_studio_list_screen.dart';
 import 'features/admin/AdminViewBookingsScreen.dart';
-import 'features/admin/admin_user_details_screen.dart'; // ✅ NEW
+import 'features/admin/admin_user_details_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,8 +36,50 @@ class HarmonyHubApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'HarmonyHub',
+
+      // 🌿 GLOBAL THEME (FORCES BLUE EVERYWHERE)
       theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+
+        scaffoldBackgroundColor: Colors.white,
+
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+        ),
+
+        // ✅ ALL ELEVATED BUTTONS
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            textStyle: const TextStyle(fontSize: 16),
+          ),
+        ),
+
+        // ✅ ALL TEXT BUTTONS (Login links, Register, Resend email)
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.blue,
+          ),
+        ),
+
+        // ✅ INPUT FIELD CURSOR + FOCUS COLOR
+        inputDecorationTheme: const InputDecorationTheme(
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.blue),
+          ),
+          labelStyle: TextStyle(color: Colors.blue),
+        ),
+
+        // ✅ ICON COLORS
+        iconTheme: const IconThemeData(color: Colors.blue),
       ),
 
       // 👇 Entry point
@@ -57,7 +99,7 @@ class HarmonyHubApp extends StatelessWidget {
         '/admin/studios': (context) => const AdminStudioListScreen(),
         '/admin/bookings': (context) => const AdminViewBookingsScreen(),
 
-        // ✅ USER DETAILS (Profile + Booking History)
+        // USER DETAILS
         '/admin/user-details': (context) {
           final userId =
               ModalRoute.of(context)!.settings.arguments as String;

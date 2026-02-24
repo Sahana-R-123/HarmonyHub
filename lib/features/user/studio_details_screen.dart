@@ -58,7 +58,6 @@ class StudioDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Studio Details'),
-        backgroundColor: Colors.deepPurple,
       ),
       body: FutureBuilder<DocumentSnapshot>(
         future: firestore.collection('studios').doc(studioId).get(),
@@ -82,6 +81,29 @@ class StudioDetailsScreen extends StatelessWidget {
 
           final List studioPrices =
               List.from(studio['studioPrices'] ?? []);
+
+          // ✅ Cancellation policy (SAFE)
+          final dynamic rawPolicy = studio['cancellationPolicy'];
+
+ 
+String cancellationPolicy = 'No cancellation policy provided.';
+
+if (rawPolicy is String) {
+  cancellationPolicy = rawPolicy;
+} else if (rawPolicy is Map) {
+  final int fullRefundHours =
+      (rawPolicy['fullRefundBeforeHours'] ?? 0) as int;
+  final int partialRefundHours =
+      (rawPolicy['partialRefundBeforeHours'] ?? 0) as int;
+  final int partialRefundPercent =
+      (rawPolicy['partialRefundPercentage'] ?? 0) as int;
+
+  cancellationPolicy =
+      'Full refund if cancelled at least $fullRefundHours hours before the slot.\n'
+      'Partial refund of $partialRefundPercent% if cancelled at least '
+      '$partialRefundHours hours before the slot.\n'
+      'No refund for cancellations within $partialRefundHours hours.';
+}
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -216,7 +238,7 @@ class StudioDetailsScreen extends StatelessWidget {
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.deepPurple.shade50,
+                            color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
@@ -236,7 +258,6 @@ class StudioDetailsScreen extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.deepPurple,
                                 ),
                               ),
                             ],
@@ -250,7 +271,7 @@ class StudioDetailsScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 const Divider(),
 
-                /// 🎸 INSTRUMENTS
+                /// 🎸 INSTRUMENTS  ✅ RESTORED
                 const Text(
                   'Available Instruments',
                   style: TextStyle(
@@ -297,10 +318,7 @@ class StudioDetailsScreen extends StatelessWidget {
                           margin:
                               const EdgeInsets.symmetric(vertical: 6),
                           child: ListTile(
-                            leading: const Icon(
-                              Icons.music_note,
-                              color: Colors.deepPurple,
-                            ),
+                            leading: const Icon(Icons.music_note),
                             title: Text(
                                 instrument['name'] ?? 'Instrument'),
                             subtitle: Text(
@@ -320,6 +338,54 @@ class StudioDetailsScreen extends StatelessWidget {
                           ),
                         );
                       },
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+                const Divider(),
+
+                /// 📄 VIEW CANCELLATION POLICY  ✅ ADDED
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.policy),
+                  title: const Text(
+                    'Cancellation Policy',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
+                      ),
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Cancellation Policy',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              cancellationPolicy,
+                              style:
+                                  const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),

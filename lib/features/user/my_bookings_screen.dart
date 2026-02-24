@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'BookingBillScreen.dart';
 
 // 👇 IMPORT YOUR EDIT SCREEN
 import 'EditBookingScreen.dart';
@@ -20,15 +21,24 @@ class MyBookingsScreen extends StatelessWidget {
   }
 
   /// 🔹 Fetch studio name
-  Future<String> fetchStudioName(String studioId) async {
-    final doc = await FirebaseFirestore.instance
-        .collection('studios')
-        .doc(studioId)
-        .get();
 
-    return doc.data()?['name'] ?? 'Unknown Studio';
-  }
+Future<String> fetchStudioName(String studioId) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('studios')
+      .doc(studioId)
+      .get();
 
+  return doc.data()?['name'] ?? 'Unknown Studio';
+}
+/// 🔹 Fetch FULL studio data (used for Bill & Policy screen)
+Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('studios')
+      .doc(studioId)
+      .get();
+
+  return doc.data() ?? {};
+}
   /// 🔹 Fetch instrument names
   Future<Map<String, String>> fetchInstrumentNames({
     required String studioId,
@@ -95,7 +105,7 @@ class MyBookingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Bookings'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -152,7 +162,7 @@ class MyBookingsScreen extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.deepPurple,
+                              //color: Colors.deepPurple,
                             ),
                           );
                         },
@@ -232,7 +242,35 @@ class MyBookingsScreen extends StatelessWidget {
                       ),
 
                       const Divider(),
+                      const SizedBox(height: 6),
+const Divider(),
+const SizedBox(height: 6),
 
+// ✅ Only show "View Bill" if booking is approved
+if (status == 'approved')
+  SizedBox(
+    width: double.infinity,
+    child: ElevatedButton(
+      child: const Text('View Bill'),
+      onPressed: () async {
+        // ✅ Use studioId derived from Firestore path
+        final studioData = await fetchStudioData(studioId);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BookingBillAndPolicyScreen(
+              bookingData: data,
+              studioData: {
+                ...studioData,
+                'studioId': studioId, // ✅ explicitly passed
+              },
+            ),
+          ),
+        );
+      },
+    ),
+  ),
                       /// ✏️ EDIT / ❌ CANCEL
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,

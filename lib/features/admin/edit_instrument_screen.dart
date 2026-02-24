@@ -81,7 +81,7 @@ class _EditInstrumentScreenState extends State<EditInstrumentScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Instrument'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

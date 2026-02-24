@@ -42,7 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Register'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -152,7 +152,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               isLoading
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orangeAccent,
+                      padding: const EdgeInsets.all(14),),
                       onPressed: () async {
+                        
                         if (fullNameController.text.isEmpty ||
                             phoneController.text.isEmpty ||
                             addressController.text.isEmpty ||
@@ -214,6 +218,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         }
                       },
                       child: const Text('Register'),
+                      
                     ),
 
               TextButton(

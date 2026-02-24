@@ -181,7 +181,7 @@ class _StudioListScreenState extends State<StudioListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Studios'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: Column(
         children: [
@@ -205,6 +205,10 @@ class _StudioListScreenState extends State<StudioListScreen> {
               child: Row(
                 children: [
                   ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orangeAccent,
+                      padding: const EdgeInsets.all(14),
+                    ),
                     onPressed: pickDate,
                     child: Text(selectedDate == null
                         ? 'Select Date'
@@ -214,6 +218,10 @@ class _StudioListScreenState extends State<StudioListScreen> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orangeAccent,
+                      padding: const EdgeInsets.all(14),
+                    ),
                     onPressed: () => pickTime(isStart: true),
                     child: Text(selectedStart == null
                         ? 'Select Start Time'
@@ -222,6 +230,10 @@ class _StudioListScreenState extends State<StudioListScreen> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orangeAccent,
+                      padding: const EdgeInsets.all(14),
+                    ),
                     onPressed: () => pickTime(isStart: false),
                     child: Text(selectedEnd == null
                         ? 'Select End Time'
@@ -230,6 +242,10 @@ class _StudioListScreenState extends State<StudioListScreen> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orangeAccent,
+                      padding: const EdgeInsets.all(14),
+                    ),
                     onPressed: applyFilters,
                     icon: const Icon(Icons.filter_alt),
                     label: const Text('Filter'),

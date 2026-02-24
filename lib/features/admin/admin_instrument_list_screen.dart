@@ -23,7 +23,7 @@ class AdminInstrumentListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('$studioName Instruments'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.orangeAccent,

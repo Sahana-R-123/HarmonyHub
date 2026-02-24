@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 // ✅ ADD THIS IMPORT
 import 'admin_user_details_screen.dart';
+import 'admin_booking_bill_screen.dart';
 
 class AdminViewBookingsScreen extends StatefulWidget {
   const AdminViewBookingsScreen({super.key});
@@ -124,14 +125,14 @@ class _AdminViewBookingsScreenState extends State<AdminViewBookingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('All Bookings'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: Column(
         children: [
           /// 🔍 FILTER BAR
           Container(
             padding: const EdgeInsets.all(12),
-            color: Colors.deepPurple.shade50,
+            color: Colors.blue.shade50,
             child: Column(
               children: [
                 Row(
@@ -250,7 +251,7 @@ class _AdminViewBookingsScreenState extends State<AdminViewBookingsScreen> {
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.deepPurple,
+                                        color: Colors.blue,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -289,20 +290,8 @@ class _AdminViewBookingsScreenState extends State<AdminViewBookingsScreen> {
                                       ),
                                     ),
                                     const Divider(),
-                                    OutlinedButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                AdminUserDetailsScreen(
-                                              userId: data['userId'],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      child: const Text('User Details'),
-                                    ),
+                                    
+                                    
                                     if (status == 'pending') ...[
                                       const SizedBox(height: 10),
                                       Row(
@@ -331,6 +320,50 @@ class _AdminViewBookingsScreenState extends State<AdminViewBookingsScreen> {
                                         ],
                                       ),
                                     ],
+                                    Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    OutlinedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdminUserDetailsScreen(
+              userId: data['userId'],
+            ),
+          ),
+        );
+      },
+      child: const Text('User Details'),
+    ),
+
+    if (status == 'approved')
+      OutlinedButton(
+        onPressed: () async {
+          final studioDoc = await FirebaseFirestore.instance
+              .collection('studios')
+              .doc(studioId)
+              .get();
+
+          final studioData = {
+            ...?studioDoc.data(),
+            'studioId': studioId,
+          };
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AdminBookingBillScreen(
+                bookingData: data,
+                studioData: studioData,
+              ),
+            ),
+          );
+        },
+        child: const Text('View Bill'),
+      ),
+  ],
+),
                                   ],
                                 ),
                               ),

@@ -56,7 +56,7 @@ class UserDashboardScreen extends StatelessWidget {
                     child: Icon(
                       Icons.person,
                       size: 60,
-                      color: Colors.deepPurple,
+                      //color: Colors.deepPurple,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -122,7 +122,7 @@ class UserDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Dashboard'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -205,7 +205,7 @@ class UserDashboardScreen extends StatelessWidget {
               Icon(
                 icon,
                 size: 40,
-                color: Colors.deepPurple,
+                //color: Colors.deepPurple,
               ),
               const SizedBox(width: 20),
               Text(

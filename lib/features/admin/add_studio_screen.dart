@@ -14,6 +14,14 @@ class _AddStudioScreenState extends State<AddStudioScreen> {
   final TextEditingController contactController = TextEditingController();
   final TextEditingController websiteController = TextEditingController();
 
+  // 🔹 Cancellation policy controllers
+  final TextEditingController fullRefundHoursController =
+      TextEditingController();
+  final TextEditingController partialRefundHoursController =
+      TextEditingController();
+  final TextEditingController partialRefundPercentController =
+      TextEditingController();
+
   bool isLoading = false;
 
   // 🔥 Dynamic studio room types
@@ -22,7 +30,7 @@ class _AddStudioScreenState extends State<AddStudioScreen> {
   @override
   void initState() {
     super.initState();
-    _addStudioType(); // start with one row
+    _addStudioType();
   }
 
   void _addStudioType() {
@@ -59,6 +67,17 @@ class _AddStudioScreenState extends State<AddStudioScreen> {
       'contact': contactController.text.trim(),
       'website': websiteController.text.trim(),
       'studioPrices': prices,
+
+      // ✅ Cancellation Policy (Structured)
+      'cancellationPolicy': {
+        'fullRefundBeforeHours':
+            int.tryParse(fullRefundHoursController.text.trim()) ?? 0,
+        'partialRefundBeforeHours':
+            int.tryParse(partialRefundHoursController.text.trim()) ?? 0,
+        'partialRefundPercentage':
+            int.tryParse(partialRefundPercentController.text.trim()) ?? 0,
+      },
+
       'isActive': true,
       'createdAt': Timestamp.now(),
     });
@@ -72,7 +91,6 @@ class _AddStudioScreenState extends State<AddStudioScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Studio'),
-        backgroundColor: Colors.deepPurple,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -145,7 +163,35 @@ class _AddStudioScreenState extends State<AddStudioScreen> {
               label: const Text('Add Another Room Type'),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
+
+            // 🔥 Cancellation Policy Section
+            const Text(
+              'Cancellation Policy (Studio)',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+
+            _inputField(
+              'Full refund before (hours)',
+              fullRefundHoursController,
+              keyboardType: TextInputType.number,
+              hint: 'e.g. 24',
+            ),
+            _inputField(
+              'Partial refund before (hours)',
+              partialRefundHoursController,
+              keyboardType: TextInputType.number,
+              hint: 'e.g. 12',
+            ),
+            _inputField(
+              'Partial refund percentage (%)',
+              partialRefundPercentController,
+              keyboardType: TextInputType.number,
+              hint: 'e.g. 50',
+            ),
+
+            const SizedBox(height: 32),
 
             isLoading
                 ? const Center(child: CircularProgressIndicator())

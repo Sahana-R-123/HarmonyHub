@@ -56,7 +56,7 @@ class AdminStudioDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Studio Details'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: FutureBuilder<DocumentSnapshot>(
         future: firestore.collection('studios').doc(studioId).get(),
@@ -214,7 +214,7 @@ class AdminStudioDetailsScreen extends StatelessWidget {
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.deepPurple.shade50,
+                            color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
@@ -234,7 +234,7 @@ class AdminStudioDetailsScreen extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.deepPurple,
+                                  //color: Colors.deepPurple,
                                 ),
                               ),
                             ],
@@ -297,7 +297,7 @@ class AdminStudioDetailsScreen extends StatelessWidget {
                           child: ListTile(
                             leading: const Icon(
                               Icons.music_note,
-                              color: Colors.deepPurple,
+                              //color: Colors.deepPurple,
                             ),
                             title: Text(
                                 instrument['name'] ?? 'Instrument'),

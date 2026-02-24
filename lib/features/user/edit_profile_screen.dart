@@ -82,7 +82,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Profile'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -128,6 +128,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ElevatedButton(
                       onPressed: _updateProfile,
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orangeAccent,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: const Text(

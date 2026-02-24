@@ -61,7 +61,7 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Instrument'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

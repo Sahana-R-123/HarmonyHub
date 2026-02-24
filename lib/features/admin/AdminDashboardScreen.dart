@@ -8,7 +8,7 @@ class AdminDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -71,7 +71,7 @@ class AdminDashboardScreen extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              Icon(icon, size: 36, color: Colors.deepPurple),
+              Icon(icon, size: 36, color: Colors.blue),
               const SizedBox(width: 20),
               Text(
                 title,

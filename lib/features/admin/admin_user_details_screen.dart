@@ -44,7 +44,7 @@ class AdminUserDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Profile'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance
@@ -160,7 +160,7 @@ class AdminUserDetailsScreen extends StatelessWidget {
                                       studioName,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.deepPurple,
+                                        //color: Colors.deepPurple,
                                       ),
                                     ),
                                     const SizedBox(height: 6),

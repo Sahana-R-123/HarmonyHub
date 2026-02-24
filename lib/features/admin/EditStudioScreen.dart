@@ -23,6 +23,11 @@ class _EditStudioScreenState extends State<EditStudioScreen> {
   late TextEditingController contactController;
   late TextEditingController websiteController;
 
+  // 🔹 Cancellation policy controllers
+  late TextEditingController fullRefundHoursController;
+  late TextEditingController partialRefundHoursController;
+  late TextEditingController partialRefundPercentController;
+
   final List<Map<String, TextEditingController>> studioRooms = [];
 
   @override
@@ -39,15 +44,25 @@ class _EditStudioScreenState extends State<EditStudioScreen> {
         TextEditingController(text: widget.studioData['website'] ?? '');
 
     final List prices = List.from(widget.studioData['studioPrices'] ?? []);
-
     for (var room in prices) {
       studioRooms.add({
         'type': TextEditingController(text: room['type']),
-        'price': TextEditingController(
-          text: room['pricePerHour'].toString(),
-        ),
+        'price':
+            TextEditingController(text: room['pricePerHour'].toString()),
       });
     }
+
+    final policy = widget.studioData['cancellationPolicy'] ?? {};
+
+    fullRefundHoursController = TextEditingController(
+      text: policy['fullRefundBeforeHours']?.toString() ?? '',
+    );
+    partialRefundHoursController = TextEditingController(
+      text: policy['partialRefundBeforeHours']?.toString() ?? '',
+    );
+    partialRefundPercentController = TextEditingController(
+      text: policy['partialRefundPercentage']?.toString() ?? '',
+    );
   }
 
   void _addStudioRoom() {
@@ -83,6 +98,16 @@ class _EditStudioScreenState extends State<EditStudioScreen> {
       'contact': contactController.text.trim(),
       'website': websiteController.text.trim(),
       'studioPrices': updatedPrices,
+
+      // ✅ Cancellation Policy Update
+      'cancellationPolicy': {
+        'fullRefundBeforeHours':
+            int.tryParse(fullRefundHoursController.text.trim()) ?? 0,
+        'partialRefundBeforeHours':
+            int.tryParse(partialRefundHoursController.text.trim()) ?? 0,
+        'partialRefundPercentage':
+            int.tryParse(partialRefundPercentController.text.trim()) ?? 0,
+      },
     });
 
     Navigator.pop(context);
@@ -93,7 +118,6 @@ class _EditStudioScreenState extends State<EditStudioScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Studio'),
-        backgroundColor: Colors.deepPurple,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -151,6 +175,26 @@ class _EditStudioScreenState extends State<EditStudioScreen> {
                 icon: const Icon(Icons.add),
                 label: const Text('Add Studio Room'),
                 onPressed: _addStudioRoom,
+              ),
+
+              const SizedBox(height: 24),
+              const Text(
+                'Cancellation Policy (Studio)',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+
+              _field(
+                'Full refund before (hours)',
+                fullRefundHoursController,
+              ),
+              _field(
+                'Partial refund before (hours)',
+                partialRefundHoursController,
+              ),
+              _field(
+                'Partial refund percentage (%)',
+                partialRefundPercentController,
               ),
 
               const SizedBox(height: 20),

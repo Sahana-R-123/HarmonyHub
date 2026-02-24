@@ -89,12 +89,55 @@ class _AdminStudioListScreenState
     return name.contains(q) || address.contains(q);
   }
 
+  /// 🔹 NEW: Show cancellation policy bottom sheet
+  void _showCancellationPolicy(
+      BuildContext context, String policy) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Cancellation Policy',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              policy.isNotEmpty
+                  ? policy
+                  : 'No cancellation policy provided.',
+              style: const TextStyle(fontSize: 15),
+            ),
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Studios'),
-        backgroundColor: Colors.deepPurple,
+        //backgroundColor: Colors.deepPurple,
       ),
       body: Column(
         children: [
@@ -154,6 +197,28 @@ class _AdminStudioListScreenState
                         data['contact'] ?? '';
                     final String website =
                         data['website'] ?? '';
+                    final dynamic rawPolicy = data['cancellationPolicy'];
+
+
+
+String cancellationPolicy = 'No cancellation policy provided.';
+
+if (rawPolicy is String) {
+  cancellationPolicy = rawPolicy;
+} else if (rawPolicy is Map) {
+  final int fullRefundHours =
+      (rawPolicy['fullRefundBeforeHours'] ?? 0) as int;
+  final int partialRefundHours =
+      (rawPolicy['partialRefundBeforeHours'] ?? 0) as int;
+  final int partialRefundPercent =
+      (rawPolicy['partialRefundPercentage'] ?? 0) as int;
+
+  cancellationPolicy =
+      'Full refund if cancelled at least $fullRefundHours hours before the slot.\n'
+      'Partial refund of $partialRefundPercent% if cancelled at least '
+      '$partialRefundHours hours before the slot.\n'
+      'No refund for cancellations within $partialRefundHours hours.';
+}
                     final List studioPrices =
                         List.from(data['studioPrices'] ?? []);
 
@@ -232,22 +297,29 @@ class _AdminStudioListScreenState
                             /// 📍 Address
                             if (address.isNotEmpty)
                               InkWell(
-                                onTap: () =>
-                                    _openMaps(address),
+                                onTap: () => _openMaps(address),
                                 child: Row(
                                   children: [
                                     const Icon(
-                                        Icons.location_on,
-                                        size: 18),
+                                      Icons.location_on,
+                                      size: 18,
+                                    ),
                                     const SizedBox(width: 6),
                                     Expanded(
-                                      child: Text(address),
+                                      child: Text(
+                                        address,
+                                        style: const TextStyle(
+                                          color: Colors.blue,
+                                          decoration:
+                                              TextDecoration.underline,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
 
-                            /// 📞 Contact (tap-to-call added)
+                            /// 📞 Contact
                             if (contact.isNotEmpty) ...[
                               const SizedBox(height: 6),
                               InkWell(
@@ -289,7 +361,7 @@ class _AdminStudioListScreenState
                                       'Visit Website',
                                       style: TextStyle(
                                         color:
-                                            Colors.deepPurple,
+                                            Colors.blue,
                                         fontWeight:
                                             FontWeight.w600,
                                       ),
@@ -330,7 +402,7 @@ class _AdminStudioListScreenState
                                       decoration:
                                           BoxDecoration(
                                         color: Colors
-                                            .deepPurple
+                                            .blue
                                             .shade50,
                                         borderRadius:
                                             BorderRadius
@@ -402,6 +474,22 @@ class _AdminStudioListScreenState
                                     ),
                                   );
                                 },
+                              ),
+                            ),
+
+                            /// ❌ NEW: View Cancellation Policy
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                icon: const Icon(
+                                    Icons.policy),
+                                label: const Text(
+                                    'View Cancellation Policy'),
+                                onPressed: () =>
+                                    _showCancellationPolicy(
+                                  context,
+                                  cancellationPolicy,
+                                ),
                               ),
                             ),
                           ],
