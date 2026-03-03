@@ -1,0 +1,31 @@
+name: Instrument Recommendation Job
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'   # Runs every Monday at 2 AM UTC
+  workflow_dispatch:     # Allows manual run
+
+jobs:
+  run-recommendation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r ml/requirements.txt
+
+      - name: Create Firebase service key
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccountKey.json
+
+      - name: Run recommendation script
+        run: |
+          python ml/model/recommend_instruments.py
