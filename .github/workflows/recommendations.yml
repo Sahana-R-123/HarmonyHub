@@ -2,8 +2,8 @@ name: Instrument Recommendation Job
 
 on:
   schedule:
-    - cron: '0 2 * * 1'   # Runs every Monday at 2 AM UTC
-  workflow_dispatch:     # Allows manual run
+    - cron: '0 2 * * 1'   # Every Monday 2 AM UTC
+  workflow_dispatch:
 
 jobs:
   run-recommendation:
@@ -24,7 +24,9 @@ jobs:
 
       - name: Create Firebase service key
         run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccountKey.json
+          cat << 'EOF' > serviceAccountKey.json
+          ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          EOF
 
       - name: Run recommendation script
         run: |

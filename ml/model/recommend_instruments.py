@@ -4,11 +4,20 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ===============================
-# FIREBASE INIT (GITHUB ACTION SAFE)
+# FIREBASE INIT (FILE-BASED, SAFE)
 # ===============================
 
-# GitHub Actions creates this file at runtime
-SERVICE_KEY_PATH = "serviceAccountKey.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SERVICE_KEY_PATH = os.path.join(
+    os.path.dirname(BASE_DIR),  # ml/
+    "..",                       # project root
+    "serviceAccountKey.json"
+)
+
+SERVICE_KEY_PATH = os.path.abspath(SERVICE_KEY_PATH)
+
+if not os.path.exists(SERVICE_KEY_PATH):
+    raise FileNotFoundError(f"Service account key not found at {SERVICE_KEY_PATH}")
 
 if not firebase_admin._apps:
     cred = credentials.Certificate(SERVICE_KEY_PATH)
@@ -16,23 +25,24 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-print("🔥 Firebase initialized")
-
 # ===============================
 # LOAD DATASET
 # ===============================
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# ml/model -> ml/data/instrument_history.csv
-DATA_PATH = os.path.join(BASE_DIR, "..", "data", "instrument_history.csv")
+DATA_PATH = os.path.join(
+    os.path.dirname(BASE_DIR),
+    "data",
+    "instrument_history.csv"
+)
 
 df = pd.read_csv(DATA_PATH)
 
 # Remove unknown instruments
 df = df[df["instrument_type"] != "unknown"]
 
-print(f"📊 Loaded {len(df)} records")
+if df.empty:
+    print("⚠️ No valid instrument data found. Exiting.")
+    exit(0)
 
 # ===============================
 # STEP 1: GLOBAL POPULARITY
@@ -45,7 +55,6 @@ global_counts = (
 )
 
 global_counts.columns = ["instrument_type", "global_count"]
-
 global_counts["global_score"] = (
     global_counts["global_count"] / global_counts["global_count"].sum()
 )
