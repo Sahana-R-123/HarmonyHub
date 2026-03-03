@@ -304,8 +304,10 @@ class _BookingScreenState extends State<BookingScreen> {
                   children: snapshot.data!.docs.map((doc) {
                     return CheckboxListTile(
                       title: Text(doc['name']),
-                      subtitle:
-                          Text('Available: ${doc['quantity']}'),
+                      subtitle: Text(
+    '${doc['type']} • Available: ${doc['quantity']}',
+  ),
+
                       value:
                           selectedInstruments.containsKey(doc.id),
                       onChanged: (val) {

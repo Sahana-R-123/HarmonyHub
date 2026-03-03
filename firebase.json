@@ -1,1 +1,45 @@
-{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"harmonyhub-27244","appId":"1:884118690450:android:41e304b27145214d1ce44b","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"harmonyhub-27244","configurations":{"android":"1:884118690450:android:41e304b27145214d1ce44b","ios":"1:884118690450:ios:6f621dfc6106e4101ce44b","macos":"1:884118690450:ios:6f621dfc6106e4101ce44b","web":"1:884118690450:web:95982d6e671d477e1ce44b","windows":"1:884118690450:web:d06d9b314ed1a0c11ce44b"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "harmonyhub-27244",
+          "appId": "1:884118690450:android:41e304b27145214d1ce44b",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "harmonyhub-27244",
+          "configurations": {
+            "android": "1:884118690450:android:41e304b27145214d1ce44b",
+            "ios": "1:884118690450:ios:6f621dfc6106e4101ce44b",
+            "macos": "1:884118690450:ios:6f621dfc6106e4101ce44b",
+            "web": "1:884118690450:web:95982d6e671d477e1ce44b",
+            "windows": "1:884118690450:web:d06d9b314ed1a0c11ce44b"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
+    }
+  ]
+}
