@@ -246,44 +246,48 @@ class _BookingScreenState extends State<BookingScreen> {
             const SizedBox(height: 20),
 
             /// 🔥 RECOMMENDED FOR YOU (NEW)
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('instrument_recommendations')
-                  .doc(userId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData || !snapshot.data!.exists) {
-                  return const SizedBox.shrink();
-                }
+StreamBuilder<DocumentSnapshot>(
+  stream: FirebaseFirestore.instance
+      .collection('instrument_recommendations')
+      .doc(userId)
+      .collection('studios')
+      .doc(widget.studioId)
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData || !snapshot.data!.exists) {
+      return const SizedBox.shrink();
+    }
 
-                final instruments =
-                    List<String>.from(snapshot.data!['topInstruments']);
+    final instruments =
+        List<String>.from(snapshot.data!['topInstruments']);
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Recommended for you',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: instruments
-                          .map(
-                            (inst) => Chip(
-                              label: Text(inst),
-                              backgroundColor: Colors.orange.shade100,
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                );
-              },
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Recommended for you',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: instruments
+              .map(
+                (inst) => Chip(
+                  label: Text(inst),
+                  backgroundColor: Colors.orange.shade100,
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  },
+),
 
             /// 🎸 INSTRUMENT LIST (UNCHANGED)
             const Text(
