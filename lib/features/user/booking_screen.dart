@@ -66,7 +66,7 @@ class _BookingScreenState extends State<BookingScreen> {
     return picked;
   }
 
-  /// ⛔ Check time conflict (ALWAYS) + instrument conflict (OPTIONAL)
+  /// ⛔ Check conflicts
   Future<bool> hasConflict(DateTime start, DateTime end) async {
     final bookings = await FirebaseFirestore.instance
         .collection('studios')
@@ -84,14 +84,9 @@ class _BookingScreenState extends State<BookingScreen> {
       final existingStart = (doc['startTime'] as Timestamp).toDate();
       final existingEnd = (doc['endTime'] as Timestamp).toDate();
 
-      // 🔴 TIME OVERLAP → BLOCK
       if (start.isBefore(existingEnd) && end.isAfter(existingStart)) {
-        // If no instruments selected, block immediately
-        if (selectedInstruments.isEmpty) {
-          return true;
-        }
+        if (selectedInstruments.isEmpty) return true;
 
-        // Otherwise check instrument overlap
         final bookedInstruments =
             List<Map<String, dynamic>>.from(doc['selectedInstruments']);
 
@@ -135,18 +130,14 @@ class _BookingScreenState extends State<BookingScreen> {
 
     if (!end.isAfter(start)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('End time must be after start time'),
-        ),
+        const SnackBar(content: Text('End time must be after start time')),
       );
       return;
     }
 
     if (await hasConflict(start, end)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Slot is not available'),
-        ),
+        const SnackBar(content: Text('Slot is not available')),
       );
       return;
     }
@@ -156,7 +147,6 @@ class _BookingScreenState extends State<BookingScreen> {
         .collection('studios')
         .doc(widget.studioId);
 
-    /// 🔻 Reduce quantity ONLY if instruments selected
     for (final entry in selectedInstruments.entries) {
       batch.update(
         studioRef.collection('instruments').doc(entry.key),
@@ -193,11 +183,10 @@ class _BookingScreenState extends State<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Book Studio'),
-        //backgroundColor: Colors.deepPurple,
-      ),
+      appBar: AppBar(title: const Text('Book Studio')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -223,8 +212,7 @@ class _BookingScreenState extends State<BookingScreen> {
             DropdownButtonFormField(
               value: genre,
               items: const [
-                DropdownMenuItem(
-                    value: 'Classical', child: Text('Classical')),
+                DropdownMenuItem(value: 'Classical', child: Text('Classical')),
                 DropdownMenuItem(value: 'Rock', child: Text('Rock')),
                 DropdownMenuItem(value: 'Jazz', child: Text('Jazz')),
                 DropdownMenuItem(value: 'Pop', child: Text('Pop')),
@@ -233,21 +221,15 @@ class _BookingScreenState extends State<BookingScreen> {
               onChanged: (v) => setState(() => genre = v!),
               decoration: const InputDecoration(labelText: 'Genre'),
             ),
-            ElevatedButton(
-              onPressed: pickDate,
-              child: Text(selectedDate == null
-                  ? 'Select Date'
-                  : selectedDate!.toString().split(' ')[0]),
-            ),
+
+            ElevatedButton(onPressed: pickDate, child: const Text('Select Date')),
             ElevatedButton(
               onPressed: () async {
                 startTime = await pickTime();
                 endTime = null;
                 setState(() {});
               },
-              child: Text(startTime == null
-                  ? 'Start Time'
-                  : startTime!.format(context)),
+              child: const Text('Start Time'),
             ),
             ElevatedButton(
               onPressed: startTime == null
@@ -255,30 +237,55 @@ class _BookingScreenState extends State<BookingScreen> {
                   : () async {
                       final picked = await pickTime();
                       if (picked == null) return;
-
-                      final startMinutes =
-                          startTime!.hour * 60 + startTime!.minute;
-                      final endMinutes =
-                          picked.hour * 60 + picked.minute;
-
-                      if (endMinutes <= startMinutes) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'End time must be after start time'),
-                          ),
-                        );
-                        return;
-                      }
-
                       endTime = picked;
                       setState(() {});
                     },
-              child: Text(endTime == null
-                  ? 'End Time'
-                  : endTime!.format(context)),
+              child: const Text('End Time'),
             ),
+
             const SizedBox(height: 20),
+
+            /// 🔥 RECOMMENDED FOR YOU (NEW)
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('instrument_recommendations')
+                  .doc(userId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return const SizedBox.shrink();
+                }
+
+                final instruments =
+                    List<String>.from(snapshot.data!['topInstruments']);
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Recommended for you',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: instruments
+                          .map(
+                            (inst) => Chip(
+                              label: Text(inst),
+                              backgroundColor: Colors.orange.shade100,
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              },
+            ),
+
+            /// 🎸 INSTRUMENT LIST (UNCHANGED)
             const Text(
               'Select Instruments',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -292,12 +299,8 @@ class _BookingScreenState extends State<BookingScreen> {
                   .where('quantity', isGreaterThan: 0)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData ||
-                    snapshot.data!.docs.isEmpty) {
-                  return const Text(
-                    'No instruments available',
-                    style: TextStyle(color: Colors.grey),
-                  );
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Text('No instruments available');
                 }
 
                 return Column(
@@ -305,11 +308,8 @@ class _BookingScreenState extends State<BookingScreen> {
                     return CheckboxListTile(
                       title: Text(doc['name']),
                       subtitle: Text(
-    '${doc['type']} • Available: ${doc['quantity']}',
-  ),
-
-                      value:
-                          selectedInstruments.containsKey(doc.id),
+                          '${doc['type']} • Available: ${doc['quantity']}'),
+                      value: selectedInstruments.containsKey(doc.id),
                       onChanged: (val) {
                         setState(() {
                           if (val == true) {
@@ -324,6 +324,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 );
               },
             ),
+
             const SizedBox(height: 24),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
