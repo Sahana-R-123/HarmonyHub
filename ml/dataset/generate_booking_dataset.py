@@ -13,7 +13,6 @@ SERVICE_KEY_PATH = os.path.abspath(
     os.path.join(BASE_DIR, "../../serviceAccountKey.json")
 )
 
-# GitHub Actions fallback
 if not os.path.exists(SERVICE_KEY_PATH):
     SERVICE_KEY_PATH = "serviceAccountKey.json"
 
@@ -36,19 +35,17 @@ rows = []
 for doc in docs:
     data = doc.to_dict()
 
-    # ✅ Extract studioId from path
     try:
         studio_id = doc.reference.parent.parent.id
     except:
         continue
 
-    # ✅ Ensure startTime exists
     if "startTime" not in data:
         print("❌ Missing startTime")
         continue
 
     try:
-        dt = data["startTime"].to_datetime()
+        dt = data["startTime"]   # ✅ FIXED HERE
     except Exception as e:
         print("❌ Timestamp error:", e)
         continue
