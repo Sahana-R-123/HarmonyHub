@@ -119,17 +119,39 @@ recommendations = (
 # STEP 5: PUSH TO FIRESTORE (STUDIO-AWARE)
 # ===============================
 
-for (user_id, studio_id), group in recommendations.groupby(["user_id", "studio_id"]):
+# Collect all users and studios
+all_users = df["user_id"].unique()
+all_studios = df["studio_id"].unique()
 
-    instruments = group["instrument_type"].tolist()
+# For new users: use studio popularity
+studio_popular_top2 = (
+    studio_counts
+    .sort_values(["studio_id", "studio_score"], ascending=[True, False])
+    .groupby("studio_id")
+    .head(2)
+)
 
-    db.collection("instrument_recommendations") \
-        .document(str(user_id)) \
-        .collection("studios") \
-        .document(str(studio_id)) \
-        .set({
-            "topInstruments": instruments,
-            "updatedAt": firestore.SERVER_TIMESTAMP
-        })
+for studio_id in all_studios:
+    top_instruments = studio_popular_top2[studio_popular_top2["studio_id"] == studio_id]["instrument_type"].tolist()
+    for user_id in all_users:
+        # Check if recommendation exists for this user-studio
+        existing = recommendations[
+            (recommendations["user_id"] == user_id) & 
+            (recommendations["studio_id"] == studio_id)
+        ]
+        if not existing.empty:
+            instruments = existing["instrument_type"].tolist()
+        else:
+            # New user / no history: use studio popularity
+            instruments = top_instruments
+
+        db.collection("instrument_recommendations") \
+            .document(str(user_id)) \
+            .collection("studios") \
+            .document(str(studio_id)) \
+            .set({
+                "topInstruments": instruments,
+                "updatedAt": firestore.SERVER_TIMESTAMP
+            })
 
 print("✅ Instrument recommendations generated & stored successfully")
