@@ -1,0 +1,31 @@
+name: Studio Busy Hour Prediction
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+
+  run-ml:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+
+      - name: Install Libraries
+        run: |
+          pip install pandas scikit-learn firebase-admin
+
+      - name: Generate Dataset
+        run: python ml/data/generate_booking_dataset.py
+
+      - name: Run Busy Hour Prediction
+        run: python ml/model/predict_busy_hours.py
