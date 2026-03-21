@@ -4,15 +4,18 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ===============================
-# FIREBASE INIT
+# FIREBASE INIT (WORKS LOCALLY + GITHUB)
 # ===============================
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 SERVICE_KEY_PATH = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "../../serviceAccountKey.json"
-    )
+    os.path.join(BASE_DIR, "../../serviceAccountKey.json")
 )
+
+# 🔐 GitHub Actions support
+if not os.path.exists(SERVICE_KEY_PATH):
+    SERVICE_KEY_PATH = "serviceAccountKey.json"
 
 if not firebase_admin._apps:
     cred = credentials.Certificate(SERVICE_KEY_PATH)
@@ -21,49 +24,68 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ===============================
-# FETCH BOOKINGS (FIXED ✅)
+# FETCH BOOKINGS FROM FIRESTORE
 # ===============================
-
-docs = db.collection_group("bookings").stream()
 
 rows = []
 
-for doc in docs:
-    data = doc.to_dict()
+print("📡 Fetching bookings from Firestore...")
 
-    # Get studioId from path
-    studio_id = doc.reference.parent.parent.id
+studios = db.collection("studios").stream()
 
-    start_time = data.get("startTime")
+for studio in studios:
+    studio_id = studio.id
 
-    if not start_time:
-        continue
+    bookings = studio.reference.collection("bookings").stream()
 
-    dt = start_time.to_datetime()
+    for booking in bookings:
+        data = booking.to_dict()
 
-    rows.append({
-        "studio_id": studio_id,
-        "hour": dt.hour,
-        "day_of_week": dt.weekday()
-    })
+        # ✅ Ensure startTime exists
+        if "startTime" not in data:
+            continue
+
+        try:
+            timestamp = data["startTime"]
+
+            # 🔥 IMPORTANT FIX: convert Timestamp → datetime
+            dt = timestamp.to_datetime()
+
+        except Exception as e:
+            print(f"⚠️ Skipping invalid booking: {e}")
+            continue
+
+        rows.append({
+            "studio_id": studio_id,
+            "hour": dt.hour,
+            "day_of_week": dt.weekday()
+        })
+
+print(f"✅ Total bookings fetched: {len(rows)}")
 
 # ===============================
-# SAVE DATASET
+# CREATE DATAFRAME
 # ===============================
 
-df = pd.DataFrame(rows)
+if len(rows) == 0:
+    print("⚠️ No bookings found. Creating empty dataset with headers.")
 
-if df.empty:
-    print("⚠️ No booking data found")
+    df = pd.DataFrame(columns=["studio_id", "hour", "day_of_week"])
+
 else:
-    SAVE_PATH = os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            "../data/studio_bookings.csv"
-        )
-    )
+    df = pd.DataFrame(rows)
 
-    os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
+# ===============================
+# SAVE CSV
+# ===============================
 
-    df.to_csv(SAVE_PATH, index=False)
-    print("✅ Dataset created:", SAVE_PATH)
+OUTPUT_PATH = os.path.abspath(
+    os.path.join(BASE_DIR, "../data/studio_bookings.csv")
+)
+
+os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+
+df.to_csv(OUTPUT_PATH, index=False)
+
+print(f"✅ Dataset saved at: {OUTPUT_PATH}")
+print("✅ Dataset generation completed successfully")
