@@ -1,21 +1,40 @@
+import os
 import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# initialize firebase
-cred = credentials.Certificate("serviceAccountKey.json")
-firebase_admin.initialize_app(cred)
+# ===============================
+# FIREBASE INIT
+# ===============================
+
+SERVICE_KEY_PATH = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "../../serviceAccountKey.json"
+    )
+)
+
+if not firebase_admin._apps:
+    cred = credentials.Certificate(SERVICE_KEY_PATH)
+    firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+# ==========================
+# FETCH BOOKINGS
+# ==========================
 
 docs = db.collection("bookings").stream()
 
 rows = []
 
 for doc in docs:
+
     data = doc.to_dict()
 
-    timestamp = data["booking_time"]
+    timestamp = data.get("booking_time")
+
+    if timestamp is None:
+        continue
 
     hour = timestamp.hour
     day = timestamp.weekday()
@@ -26,8 +45,17 @@ for doc in docs:
         "day_of_week": day
     })
 
+# ==========================
+# SAVE DATASET
+# ==========================
+
 df = pd.DataFrame(rows)
 
-df.to_csv("ml/data/studio_bookings.csv", index=False)
+output_path = os.path.join(
+    os.path.dirname(__file__),
+    "studio_bookings.csv"
+)
 
-print("Dataset created")
+df.to_csv(output_path, index=False)
+
+print("Dataset created successfully")
