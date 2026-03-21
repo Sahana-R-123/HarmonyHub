@@ -21,60 +21,49 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ===============================
-# FETCH BOOKINGS
+# FETCH BOOKINGS (FIXED ✅)
 # ===============================
+
+docs = db.collection_group("bookings").stream()
 
 rows = []
 
-studios = db.collection("studios").stream()
+for doc in docs:
+    data = doc.to_dict()
 
-for studio in studios:
-    studio_id = studio.id
+    # Get studioId from path
+    studio_id = doc.reference.parent.parent.id
 
-    bookings = studio.reference.collection("bookings").stream()
+    start_time = data.get("startTime")
 
-    for booking in bookings:
-        data = booking.to_dict()
+    if not start_time:
+        continue
 
-        # ✅ Ensure startTime exists
-        if "startTime" not in data:
-            continue
+    dt = start_time.to_datetime()
 
-        try:
-            dt = data["startTime"]   # ✅ FIXED HERE
-        except:
-            continue
-
-        rows.append({
-            "studio_id": studio_id,
-            "hour": dt.hour,
-            "day_of_week": dt.weekday()
-        })
+    rows.append({
+        "studio_id": studio_id,
+        "hour": dt.hour,
+        "day_of_week": dt.weekday()
+    })
 
 # ===============================
-# CREATE DATAFRAME
+# SAVE DATASET
 # ===============================
 
 df = pd.DataFrame(rows)
 
-print(f"✅ Total bookings fetched: {len(df)}")
-
 if df.empty:
-    print("⚠️ No bookings found. Dataset will be empty.")
-
-# ===============================
-# SAVE CSV
-# ===============================
-
-OUTPUT_PATH = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "../data/studio_bookings.csv"
+    print("⚠️ No booking data found")
+else:
+    SAVE_PATH = os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "../data/studio_bookings.csv"
+        )
     )
-)
 
-os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
 
-df.to_csv(OUTPUT_PATH, index=False)
-
-print("✅ Dataset saved successfully")
+    df.to_csv(SAVE_PATH, index=False)
+    print("✅ Dataset created:", SAVE_PATH)
