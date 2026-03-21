@@ -24,6 +24,10 @@ jobs:
         run: |
           pip install pandas scikit-learn firebase-admin
 
+      - name: Create Firebase key
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > serviceAccountKey.json
+     
       - name: Generate Dataset
         run: python ml/dataset/generate_booking_dataset.py
 
