@@ -19,43 +19,62 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
-# ==========================
-# FETCH BOOKINGS
-# ==========================
 
-docs = db.collection("bookings").stream()
+# ===============================
+# FETCH BOOKINGS
+# ===============================
 
 rows = []
 
-for doc in docs:
+studios = db.collection("studios").stream()
 
-    data = doc.to_dict()
+for studio in studios:
+    studio_id = studio.id
 
-    timestamp = data.get("booking_time")
+    bookings = studio.reference.collection("bookings").stream()
 
-    if timestamp is None:
-        continue
+    for booking in bookings:
+        data = booking.to_dict()
 
-    hour = timestamp.hour
-    day = timestamp.weekday()
+        # ✅ Ensure startTime exists
+        if "startTime" not in data:
+            continue
 
-    rows.append({
-        "studio_id": data["studio_id"],
-        "hour": hour,
-        "day_of_week": day
-    })
+        try:
+            dt = data["startTime"]   # ✅ FIXED HERE
+        except:
+            continue
 
-# ==========================
-# SAVE DATASET
-# ==========================
+        rows.append({
+            "studio_id": studio_id,
+            "hour": dt.hour,
+            "day_of_week": dt.weekday()
+        })
+
+# ===============================
+# CREATE DATAFRAME
+# ===============================
 
 df = pd.DataFrame(rows)
 
-output_path = os.path.join(
-    os.path.dirname(__file__),
-    "studio_bookings.csv"
+print(f"✅ Total bookings fetched: {len(df)}")
+
+if df.empty:
+    print("⚠️ No bookings found. Dataset will be empty.")
+
+# ===============================
+# SAVE CSV
+# ===============================
+
+OUTPUT_PATH = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "../data/studio_bookings.csv"
+    )
 )
 
-df.to_csv(output_path, index=False)
+os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 
-print("Dataset created successfully")
+df.to_csv(OUTPUT_PATH, index=False)
+
+print("✅ Dataset saved successfully")
