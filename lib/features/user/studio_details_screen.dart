@@ -51,6 +51,11 @@ class StudioDetailsScreen extends StatelessWidget {
     );
   }
 
+String _formatHour(int hour) {
+  final period = hour >= 12 ? "PM" : "AM";
+  final h = hour % 12 == 0 ? 12 : hour % 12;
+  return "$h $period";
+}
   @override
   Widget build(BuildContext context) {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -268,9 +273,77 @@ if (rawPolicy is String) {
                   ),
                 ],
 
-                const SizedBox(height: 24),
-                const Divider(),
+                /// 🔥 BUSY HOUR PREDICTION
+const SizedBox(height: 24),
+const Divider(),
 
+const Text(
+  '🔥 Popular Hours',
+  style: TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.bold,
+  ),
+),
+
+const SizedBox(height: 12),
+
+StreamBuilder<DocumentSnapshot>(
+  stream: firestore
+      .collection('studio_busy_hours')
+      .doc(studioId)
+      .snapshots(),
+  builder: (context, busySnapshot) {
+    if (busySnapshot.connectionState ==
+        ConnectionState.waiting) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (!busySnapshot.hasData ||
+        !busySnapshot.data!.exists) {
+      return const Text('No busy hour prediction available');
+    }
+
+    final data =
+        busySnapshot.data!.data() as Map<String, dynamic>;
+
+    final List<int> busyHours =
+        (data['busyHours'] as List<dynamic>? ?? [])
+            .map((e) => e as int)
+            .toList();
+
+    if (busyHours.isEmpty) {
+      return const Text('No busy hours predicted');
+    }
+
+    busyHours.sort(); // ✅ important
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: busyHours.map((hour) {
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            _formatHour(hour),
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.red,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  },
+),
                 /// 🎸 INSTRUMENTS  ✅ RESTORED
                 const Text(
                   'Available Instruments',
