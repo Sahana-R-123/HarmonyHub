@@ -69,35 +69,36 @@ for studio_id, studio_df in df.groupby("studio_id"):
 
         print("⚡ Using SMART LOGIC (low data mode)")
 
-        # Fill all 24 hours
-        all_hours = pd.DataFrame({"hour": range(24)})
-        hourly_counts = pd.merge(
-            all_hours, hourly_counts, on="hour", how="left"
-        ).fillna(0)
+        # ✅ DO NOT create fake 24 hours
+        # Just use real data
 
-        # Smoothing
-        hourly_counts["smoothed"] = (
-            hourly_counts["booking_count"]
-            + hourly_counts["booking_count"].shift(1, fill_value=0)
-            + hourly_counts["booking_count"].shift(-1, fill_value=0)
+        hourly_counts = (
+            studio_df.groupby("hour")
+            .size()
+            .reset_index(name="booking_count")
         )
 
-        # ✅ KEEP ONLY VALID HOURS
-        valid_hours = hourly_counts[hourly_counts["booking_count"] > 0]
+        print("📊 Raw hourly data:")
+        print(hourly_counts)
 
-        if valid_hours.empty:
-            print("⚠️ No valid booking hours found")
+        if hourly_counts.empty:
+            print("⚠️ No booking data")
             continue
 
-        # ✅ Only pick from real booking hours (CRITICAL FIX)
-        busy_hours = valid_hours.sort_values(
+        # ✅ STRICT: only real bookings
+        hourly_counts = hourly_counts[hourly_counts["booking_count"] > 0]
+
+        # Sort by frequency
+        hourly_counts = hourly_counts.sort_values(
             "booking_count", ascending=False
         )
 
-        # Limit results
-        top_n = min(3, len(busy_hours))
+        # Take top 3
+        top_n = min(3, len(hourly_counts))
 
-        hours_list = busy_hours.head(top_n)["hour"].astype(int).tolist()
+        hours_list = hourly_counts.head(top_n)["hour"].astype(int).tolist()
+
+        print("🚀 FINAL HOURS:", hours_list)
     # --------------------------------
     # CASE 2: ENOUGH DATA → ML MODEL
     # --------------------------------
