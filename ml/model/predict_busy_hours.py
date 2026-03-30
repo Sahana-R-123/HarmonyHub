@@ -3,6 +3,7 @@ import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 from sklearn.ensemble import RandomForestRegressor
+from datetime import timezone, timedelta
 
 # ===============================
 # FIREBASE INIT
@@ -33,6 +34,22 @@ DATA_PATH = os.path.abspath(
 )
 
 df = pd.read_csv(DATA_PATH)
+
+# ✅ ===============================
+# 🔥 TIMEZONE FIX (IST CONVERSION)
+# ===============================
+if "hour" in df.columns:
+    # If dataset already has wrong hours, FIX THEM
+    IST = timezone(timedelta(hours=5, minutes=30))
+
+    if "startTime" in df.columns:
+        df["startTime"] = pd.to_datetime(df["startTime"], utc=True)
+        df["startTime"] = df["startTime"].dt.tz_convert(IST)
+
+        df["hour"] = df["startTime"].dt.hour
+        df["day_of_week"] = df["startTime"].dt.weekday
+
+# ===============================
 
 if df.empty:
     print("⚠️ No booking data found")
@@ -69,9 +86,6 @@ for studio_id, studio_df in df.groupby("studio_id"):
 
         print("⚡ Using SMART LOGIC (low data mode)")
 
-        # ✅ DO NOT create fake 24 hours
-        # Just use real data
-
         hourly_counts = (
             studio_df.groupby("hour")
             .size()
@@ -85,20 +99,18 @@ for studio_id, studio_df in df.groupby("studio_id"):
             print("⚠️ No booking data")
             continue
 
-        # ✅ STRICT: only real bookings
         hourly_counts = hourly_counts[hourly_counts["booking_count"] > 0]
 
-        # Sort by frequency
         hourly_counts = hourly_counts.sort_values(
             "booking_count", ascending=False
         )
 
-        # Take top 3
         top_n = min(3, len(hourly_counts))
 
         hours_list = hourly_counts.head(top_n)["hour"].astype(int).tolist()
 
         print("🚀 FINAL HOURS:", hours_list)
+
     # --------------------------------
     # CASE 2: ENOUGH DATA → ML MODEL
     # --------------------------------
@@ -106,9 +118,6 @@ for studio_id, studio_df in df.groupby("studio_id"):
 
         print("🤖 Using ML MODEL (high data mode)")
 
-        # ---------------------------
-        # FEATURE ENGINEERING
-        # ---------------------------
         hourly_counts["is_evening"] = hourly_counts["hour"].apply(
             lambda x: 1 if x >= 17 else 0
         )
@@ -123,9 +132,6 @@ for studio_id, studio_df in df.groupby("studio_id"):
         else:
             hourly_counts["day_of_week"] = 0
 
-        # ---------------------------
-        # TRAIN MODEL
-        # ---------------------------
         X = hourly_counts[["hour", "is_evening", "day_of_week"]]
         y = hourly_counts["booking_count"]
 
@@ -136,14 +142,8 @@ for studio_id, studio_df in df.groupby("studio_id"):
 
         model.fit(X, y)
 
-        # ---------------------------
-        # PREDICT BOOKINGS
-        # ---------------------------
         hourly_counts["predicted_bookings"] = model.predict(X)
 
-        # ---------------------------
-        # FIND BUSY HOURS
-        # ---------------------------
         threshold = hourly_counts["booking_count"].quantile(0.75)
 
         busy_hours = hourly_counts[

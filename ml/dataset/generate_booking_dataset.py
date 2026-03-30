@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
+from datetime import timezone, timedelta   # ✅ ADDED
 
 # ===============================
 # FIREBASE INIT
@@ -32,6 +33,9 @@ docs = db.collection_group("bookings").stream()
 
 rows = []
 
+# ✅ IST timezone
+IST = timezone(timedelta(hours=5, minutes=30))
+
 for doc in docs:
     data = doc.to_dict()
 
@@ -45,7 +49,11 @@ for doc in docs:
         continue
 
     try:
-        dt = data["startTime"]   # ✅ FIXED HERE
+        dt = data["startTime"]
+
+        # ✅ 🔥 CONVERT TO IST (MAIN FIX)
+        dt = dt.astimezone(IST)
+
     except Exception as e:
         print("❌ Timestamp error:", e)
         continue
