@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-
+import 'PaymentScreen.dart';
 class BookingBillAndPolicyScreen extends StatefulWidget {
   final Map<String, dynamic> bookingData;
   final Map<String, dynamic> studioData;
@@ -228,7 +228,20 @@ class _BookingBillAndPolicyScreenState
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: agreed ? () {} : null,
+                //onPressed: agreed ? () {} : null,
+                onPressed: agreed
+    ? () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PaymentScreen(
+              bookingData: widget.bookingData,
+              studioData: widget.studioData,
+            ),
+          ),
+        );
+      }
+    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   padding: const EdgeInsets.all(14),
