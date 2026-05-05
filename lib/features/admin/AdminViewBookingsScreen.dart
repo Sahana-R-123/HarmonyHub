@@ -337,7 +337,7 @@ class _AdminViewBookingsScreenState extends State<AdminViewBookingsScreen> {
       child: const Text('User Details'),
     ),
 
-    if (status == 'approved')
+    if (status == 'approved' || status == 'cancelled')
       OutlinedButton(
         onPressed: () async {
           final studioDoc = await FirebaseFirestore.instance

@@ -190,25 +190,28 @@ class _BookingScreenState extends State<BookingScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16).copyWith(bottom: 80),
           children: [
+
             TextFormField(
               controller: nameCtrl,
               decoration: const InputDecoration(labelText: 'Name'),
               validator: (v) => v!.isEmpty ? 'Required' : null,
             ),
+
             TextFormField(
               controller: peopleCtrl,
-              decoration:
-                  const InputDecoration(labelText: 'Number of People'),
+              decoration: const InputDecoration(labelText: 'Number of People'),
               keyboardType: TextInputType.number,
               validator: (v) => v!.isEmpty ? 'Required' : null,
             ),
+
             TextFormField(
               controller: purposeCtrl,
               decoration: const InputDecoration(labelText: 'Purpose'),
               validator: (v) => v!.isEmpty ? 'Required' : null,
             ),
+
             DropdownButtonFormField(
               value: genre,
               items: const [
@@ -222,15 +225,22 @@ class _BookingScreenState extends State<BookingScreen> {
               decoration: const InputDecoration(labelText: 'Genre'),
             ),
 
-            ElevatedButton(onPressed: pickDate, child: const Text('Select Date')),
+            const SizedBox(height: 10),
+
+            ElevatedButton(onPressed: pickDate, child: Text(selectedDate == null
+                ? 'Select Date'
+                : 'Date: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}')),
+
             ElevatedButton(
               onPressed: () async {
                 startTime = await pickTime();
-                endTime = null;
                 setState(() {});
               },
-              child: const Text('Start Time'),
+              child: Text(startTime == null
+                  ? 'Start Time'
+                  : 'Start: ${startTime!.format(context)}'),
             ),
+
             ElevatedButton(
               onPressed: startTime == null
                   ? null
@@ -240,60 +250,48 @@ class _BookingScreenState extends State<BookingScreen> {
                       endTime = picked;
                       setState(() {});
                     },
-              child: const Text('End Time'),
+              child: Text(endTime == null
+                  ? 'End Time'
+                  : 'End: ${endTime!.format(context)}'),
             ),
 
             const SizedBox(height: 20),
 
-            /// 🔥 RECOMMENDED FOR YOU (NEW)
-StreamBuilder<DocumentSnapshot>(
-  stream: FirebaseFirestore.instance
-      .collection('instrument_recommendations')
-      .doc(userId)
-      .collection('studios')
-      .doc(widget.studioId)
-      .snapshots(),
-  builder: (context, snapshot) {
-    if (!snapshot.hasData || !snapshot.data!.exists) {
-      return const SizedBox.shrink();
-    }
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('instrument_recommendations')
+                  .doc(userId)
+                  .collection('studios')
+                  .doc(widget.studioId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return const SizedBox.shrink();
+                }
 
-    final instruments =
-        List<String>.from(snapshot.data!['topInstruments']);
+                final instruments =
+                    List<String>.from(snapshot.data!['topInstruments']);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Recommended for you',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: instruments
-              .map(
-                (inst) => Chip(
-                  label: Text(inst),
-                  backgroundColor: Colors.orange.shade100,
-                ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 20),
-      ],
-    );
-  },
-),
-
-            /// 🎸 INSTRUMENT LIST (UNCHANGED)
-            const Text(
-              'Select Instruments',
-              style: TextStyle(fontWeight: FontWeight.bold),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Recommended for you',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Wrap(
+                      spacing: 8,
+                      children: instruments
+                          .map((e) => Chip(label: Text(e)))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              },
             ),
+
+            const Text('Select Instruments',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('studios')
@@ -303,33 +301,57 @@ StreamBuilder<DocumentSnapshot>(
                   .where('quantity', isGreaterThan: 0)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Text('No instruments available');
-                }
+                if (!snapshot.hasData) return const Text('No instruments');
 
                 return Column(
                   children: snapshot.data!.docs.map((doc) {
-                    return CheckboxListTile(
-                      title: Text(doc['name']),
-                      subtitle: Text(
-                          '${doc['type']} • Available: ${doc['quantity']}'),
-                      value: selectedInstruments.containsKey(doc.id),
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            selectedInstruments[doc.id] = 1;
-                          } else {
-                            selectedInstruments.remove(doc.id);
-                          }
-                        });
-                      },
+                    final qty = doc['quantity'];
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(doc['name']),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              onPressed: selectedInstruments[doc.id] == null
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        selectedInstruments[doc.id] =
+                                            (selectedInstruments[doc.id] ?? 1) - 1;
+                                        if (selectedInstruments[doc.id]! <= 0) {
+                                          selectedInstruments.remove(doc.id);
+                                        }
+                                      });
+                                    },
+                            ),
+                            Text('${selectedInstruments[doc.id] ?? 0}'),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: (selectedInstruments[doc.id] ?? 0) < qty
+                                  ? () {
+                                      setState(() {
+                                        selectedInstruments[doc.id] =
+                                            (selectedInstruments[doc.id] ?? 0) + 1;
+                                      });
+                                    }
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ],
                     );
                   }).toList(),
                 );
               },
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 30),
+
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orangeAccent,

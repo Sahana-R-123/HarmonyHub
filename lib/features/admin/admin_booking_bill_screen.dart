@@ -18,6 +18,9 @@ class AdminBookingBillScreen extends StatefulWidget {
 }
 
 class _AdminBookingBillScreenState extends State<AdminBookingBillScreen> {
+
+bool get isCancelled => widget.bookingData['status'] == 'cancelled';
+
 String getCancellationPolicyText() {
   final dynamic rawPolicy =
       widget.studioData['cancellationPolicy'];
@@ -26,12 +29,10 @@ String getCancellationPolicyText() {
     return 'No cancellation policy provided by the studio.';
   }
 
-  // If studio stored policy as plain text
   if (rawPolicy is String) {
     return rawPolicy;
   }
 
-  // If studio stored policy as structured data
   if (rawPolicy is Map) {
     final int fullRefundHours =
         rawPolicy['fullRefundBeforeHours'] ?? 24;
@@ -48,90 +49,184 @@ String getCancellationPolicyText() {
 ''';
   }
 
-  // If stored as list
   if (rawPolicy is List) {
     return rawPolicy.map((e) => '• $e').join('\n');
   }
 
   return 'No valid cancellation policy available.';
 }
-  double _hours() {
-    final start =
-        (widget.bookingData['startTime'] as Timestamp).toDate();
-    final end =
-        (widget.bookingData['endTime'] as Timestamp).toDate();
-    return end.difference(start).inMinutes / 60;
-  }
 
-  Future<double> _instrumentCost(double hours) async {
-    final instruments = widget.bookingData['selectedInstruments'];
-    if (instruments == null || instruments.isEmpty) return 0.0;
+double _hours() {
+  final start =
+      (widget.bookingData['startTime'] as Timestamp).toDate();
+  final end =
+      (widget.bookingData['endTime'] as Timestamp).toDate();
+  return end.difference(start).inMinutes / 60;
+}
 
-    double total = 0.0;
-    final studioId = widget.studioData['studioId'];
+/// 🎯 room selection
+Map<String, dynamic> _selectRoom() {
+  final people = (widget.bookingData['numberOfPeople'] ?? 1);
 
-    for (final item in instruments) {
-      final instId = item['instrumentId'];
-      final qty = item['quantity'] ?? 1;
+  final List rooms = widget.studioData['studioPrices'] ?? [];
 
-      final doc = await FirebaseFirestore.instance
-          .collection('studios')
-          .doc(studioId)
-          .collection('instruments')
-          .doc(instId)
-          .get();
+  rooms.sort((a, b) => (a['capacity'] ?? 0).compareTo(b['capacity'] ?? 0));
 
-      final rate = (doc.data()?['rentPerHour'] ?? 0).toDouble();
-      total += rate * qty * hours;
+  for (final room in rooms) {
+    if (people <= (room['capacity'] ?? 0)) {
+      return room;
     }
-
-    return total;
   }
 
-  double _studioRate() {
-    final prices = widget.studioData['studioPrices'];
-    if (prices is List && prices.isNotEmpty) {
-      return (prices.first['pricePerHour'] ?? 0).toDouble();
-    }
-    return 0.0;
+  return rooms.isNotEmpty ? rooms.last : {};
+}
+
+double _studioRate() {
+  final room = _selectRoom();
+  return (room['pricePerHour'] ?? 0).toDouble();
+}
+
+Future<double> _instrumentCost(double hours) async {
+  final instruments = widget.bookingData['selectedInstruments'];
+  if (instruments == null || instruments.isEmpty) return 0.0;
+
+  double total = 0.0;
+  final studioId = widget.studioData['studioId'];
+
+  for (final item in instruments) {
+    final instId = item['instrumentId'];
+    final qty = item['quantity'] ?? 1;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('studios')
+        .doc(studioId)
+        .collection('instruments')
+        .doc(instId)
+        .get();
+
+    final rate = (doc.data()?['rentPerHour'] ?? 0).toDouble();
+    total += rate * qty * hours;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final booking = widget.bookingData;
-    final studio = widget.studioData;
+  return total;
+}
 
-    final hours = _hours();
-    final studioCost = _studioRate() * hours;
+/// ✅ UPDATED: now uses TOTAL COST (studio + instruments + GST)
+double _calculateCancellationCharge(
+    double studioCost,
+    double instCost,
+    double hours,
+) {
+  final dynamic rawPolicy = widget.studioData['cancellationPolicy'];
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Booking Bill')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+  final gst = (studioCost + instCost) * 0.18;
+  final totalCost = studioCost + instCost + gst;
 
-            _title('Studio Details'),
-            Text(studio['name'] ?? ''),
-            Text(studio['fullAddress'] ?? ''),
-            Text('Contact: ${studio['contact'] ?? '-'}'),
+  if (rawPolicy == null || rawPolicy is! Map) {
+    return totalCost * 0.5; // fallback
+  }
 
-            const Divider(height: 32),
+  final int partialRefundPercent =
+      rawPolicy['partialRefundPercentage'] ?? 50;
 
-            _title('Booking Details'),
-            Text(
-              'Date: ${DateFormat('dd MMM yyyy').format((booking['date'] as Timestamp).toDate())}',
-            ),
-            Text(
-              'Time: ${DateFormat('hh:mm a').format((booking['startTime'] as Timestamp).toDate())}'
-              ' - ${DateFormat('hh:mm a').format((booking['endTime'] as Timestamp).toDate())}',
-            ),
-            Text('Duration: ${hours.toStringAsFixed(1)} hrs'),
+  final int fullRefundHours =
+      rawPolicy['fullRefundBeforeHours'] ?? 24;
 
-            const Divider(height: 32),
+  final int partialRefundHours =
+      rawPolicy['partialRefundBeforeHours'] ?? 12;
 
-            _title('Bill Details'),
+  final bookingTime =
+      (widget.bookingData['startTime'] as Timestamp).toDate();
+
+  final now = DateTime.now();
+
+  final diffHours = bookingTime.difference(now).inHours;
+
+  // FULL REFUND → no charge
+  if (diffHours >= fullRefundHours) {
+    return 0;
+  }
+
+  // PARTIAL REFUND → applied on TOTAL COST (FIXED)
+  if (diffHours >= partialRefundHours &&
+      diffHours < fullRefundHours) {
+    return totalCost * (100 - partialRefundPercent) / 100;
+  }
+
+  // NO REFUND → full amount charged
+  return totalCost;
+}
+
+@override
+Widget build(BuildContext context) {
+  final booking = widget.bookingData;
+  final studio = widget.studioData;
+
+  final hours = _hours();
+  final studioCost = _studioRate() * hours;
+
+  return Scaffold(
+    appBar: AppBar(title: const Text('Booking Bill')),
+    body: SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          _title('Studio Details'),
+          Text(studio['name'] ?? ''),
+          Text(studio['fullAddress'] ?? ''),
+          Text('Contact: ${studio['contact'] ?? '-'}'),
+
+          const Divider(height: 32),
+
+          _title('Booking Details'),
+          Text(
+            'Date: ${DateFormat('dd MMM yyyy').format((booking['date'] as Timestamp).toDate())}',
+          ),
+          Text(
+            'Time: ${DateFormat('hh:mm a').format((booking['startTime'] as Timestamp).toDate())}'
+            ' - ${DateFormat('hh:mm a').format((booking['endTime'] as Timestamp).toDate())}',
+          ),
+          Text('Duration: ${hours.toStringAsFixed(1)} hrs'),
+
+          const Divider(height: 32),
+
+          /// 🚨 CANCELLED BOOKING VIEW
+          if (isCancelled)
+            FutureBuilder<double>(
+              future: _instrumentCost(hours),
+              builder: (context, snap) {
+                if (!snap.hasData) {
+                  return const CircularProgressIndicator();
+                }
+
+                final instCost = snap.data!;
+                final gst = (studioCost + instCost) * 0.18;
+
+                final cancelCharge =
+                    _calculateCancellationCharge(studioCost, instCost, hours);
+
+                final totalPaid = studioCost + instCost + gst;
+
+                final totalRefund =
+                    totalPaid - cancelCharge;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _title('Cancellation Bill'),
+                    _row('Studio Charge', studioCost, bold: true),
+                    _row('Instrument Charge', instCost, bold: true),
+                    _row('GST (18%)', gst, bold: true),
+                    _row('Cancellation Charge', cancelCharge, bold: true),
+                    const Divider(),
+                    _row('Total Refund', totalRefund, bold: true),
+                  ],
+                );
+              },
+            )
+          else
             FutureBuilder<double>(
               future: _instrumentCost(hours),
               builder: (context, snap) {
@@ -145,6 +240,7 @@ String getCancellationPolicyText() {
 
                 return Column(
                   children: [
+                    _title('Bill Details'),
                     _row('Studio Charge', studioCost),
                     _row('Instrument Rental', instCost),
                     _row('GST (18%)', gst),
@@ -155,36 +251,40 @@ String getCancellationPolicyText() {
               },
             ),
 
-            const Divider(height: 32),
+          const Divider(height: 32),
 
-            _title('Cancellation Policy'),
-            Text(
-  getCancellationPolicyText(),
-  style: const TextStyle(height: 1.5),
-),
-          ],
-        ),
+          if (!isCancelled)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _title('Cancellation Policy'),
+                Text(getCancellationPolicyText(),
+                    style: const TextStyle(height: 1.5)),
+              ],
+            ),
+        ],
       ),
-    );
-  }
-
-  Widget _title(String t) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(
-      t,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
     ),
   );
+}
 
-  Widget _row(String l, double v, {bool bold = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(l, style: TextStyle(fontWeight: bold ? FontWeight.bold : null)),
-        Text('₹${v.toStringAsFixed(2)}',
-            style: TextStyle(fontWeight: bold ? FontWeight.bold : null)),
-      ],
-    ),
-  );
+Widget _title(String t) => Padding(
+  padding: const EdgeInsets.only(bottom: 6),
+  child: Text(
+    t,
+    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  ),
+);
+
+Widget _row(String l, double v, {bool bold = false}) => Padding(
+  padding: const EdgeInsets.symmetric(vertical: 4),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(l, style: TextStyle(fontWeight: bold ? FontWeight.bold : null)),
+      Text('₹${v.toStringAsFixed(2)}',
+          style: TextStyle(fontWeight: bold ? FontWeight.bold : null)),
+    ],
+  ),
+);
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'PaymentScreen.dart';
+
 class BookingBillAndPolicyScreen extends StatefulWidget {
   final Map<String, dynamic> bookingData;
   final Map<String, dynamic> studioData;
@@ -21,7 +22,6 @@ class _BookingBillAndPolicyScreenState
     extends State<BookingBillAndPolicyScreen> {
   bool agreed = false;
 
-  /// ⏱ Calculate duration in hours
   double getHours() {
     final start =
         (widget.bookingData['startTime'] as Timestamp).toDate();
@@ -30,19 +30,14 @@ class _BookingBillAndPolicyScreenState
     return end.difference(start).inMinutes / 60;
   }
 
-  /// 🎸 Instrument rental cost (FIXED studioId source)
   Future<double> getInstrumentCost(double hours) async {
     final instruments = widget.bookingData['selectedInstruments'];
     if (instruments == null || instruments.isEmpty) return 0.0;
 
     double total = 0.0;
 
-    // ✅ FIX: studioId comes from bookingData
     final String? studioId = widget.studioData['studioId'];
-    if (studioId == null) {
-      debugPrint('Studio ID not found in bookingData');
-      return 0.0;
-    }
+    if (studioId == null) return 0.0;
 
     for (final item in instruments) {
       final instrumentId = item['instrumentId'];
@@ -64,7 +59,6 @@ class _BookingBillAndPolicyScreenState
     return total;
   }
 
-  /// ❌ Cancellation policy text builder
   String getCancellationPolicyText() {
     final dynamic rawPolicy =
         widget.studioData['cancellationPolicy'];
@@ -73,9 +67,7 @@ class _BookingBillAndPolicyScreenState
       return 'No cancellation policy provided by the studio.';
     }
 
-    if (rawPolicy is String) {
-      return rawPolicy;
-    }
+    if (rawPolicy is String) return rawPolicy;
 
     if (rawPolicy is Map) {
       final int fullRefundHours =
@@ -93,28 +85,58 @@ class _BookingBillAndPolicyScreenState
 ''';
     }
 
-    if (rawPolicy is List) {
-      return rawPolicy.join('\n• ');
-    }
-
     return 'No valid cancellation policy available.';
   }
 
-  /// 🔹 Safe helper to get studio rate
-  double getStudioRate() {
-    final prices = widget.studioData['studioPrices'];
-    if (prices == null) return 0.0;
+  double getStudioCostByPeople(double hours) {
+    final int people = widget.bookingData['numberOfPeople'] ?? 1;
 
-    if (prices is List && prices.isNotEmpty) {
-      final first = prices.first;
-      if (first is Map && first['pricePerHour'] != null) {
-        return (first['pricePerHour'] as num).toDouble();
-      }
-    } else if (prices is Map && prices['pricePerHour'] != null) {
-      return (prices['pricePerHour'] as num).toDouble();
+    final prices = widget.studioData['studioPrices'];
+
+    if (prices == null || prices is! List || prices.isEmpty) {
+      return 0.0;
     }
 
-    return 0.0;
+    List<Map<String, dynamic>> rooms = List<Map<String, dynamic>>.from(prices);
+
+    rooms.sort((a, b) =>
+        (a['pricePerHour'] ?? 0).compareTo(b['pricePerHour'] ?? 0));
+
+    int index = (people / 2).floor();
+    if (index >= rooms.length) index = rooms.length - 1;
+
+    final rate =
+        (rooms[index]['pricePerHour'] ?? 0).toDouble();
+
+    return rate * hours;
+  }
+
+  /// 🔥 FIXED: uses TOTAL COST instead of studio only
+  double getCancellationCharge(double totalCost) {
+    final policy = widget.studioData['cancellationPolicy'];
+
+    if (policy == null || policy is! Map) {
+      return totalCost * 0.2;
+    }
+
+    final start =
+        (widget.bookingData['startTime'] as Timestamp).toDate();
+
+    final now = DateTime.now();
+    final hoursBefore = start.difference(now).inHours;
+
+    final fullRefundHours = policy['fullRefundBeforeHours'] ?? 24;
+    final partialRefundHours = policy['partialRefundBeforeHours'] ?? 12;
+    final partialRefundPercent =
+        policy['partialRefundPercentage'] ?? 50;
+
+    if (hoursBefore >= fullRefundHours) {
+      return 0;
+    } else if (hoursBefore >= partialRefundHours) {
+      return totalCost * (100 - partialRefundPercent) / 100;
+    } else {
+      return totalCost;
+    }
   }
 
   @override
@@ -124,8 +146,9 @@ class _BookingBillAndPolicyScreenState
 
     final double hours = getHours();
 
-    final double studioRate = getStudioRate();
-    final double studioCost = studioRate * hours;
+    final bool isCancelled = booking['status'] == 'cancelled';
+
+    final double studioCost = getStudioCostByPeople(hours);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Booking Confirmation')),
@@ -135,7 +158,6 @@ class _BookingBillAndPolicyScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            /// 🏢 STUDIO DETAILS
             _sectionTitle('Studio Details'),
             Text(studio['name'] ?? ''),
             Text(studio['fullAddress'] ?? ''),
@@ -143,7 +165,6 @@ class _BookingBillAndPolicyScreenState
 
             const Divider(height: 32),
 
-            /// 📅 BOOKING DETAILS
             _sectionTitle('Booking Details'),
             Text(
               'Date: ${DateFormat('dd MMM yyyy').format((booking['date'] as Timestamp).toDate())}',
@@ -156,32 +177,57 @@ class _BookingBillAndPolicyScreenState
 
             const Divider(height: 32),
 
-            /// 💰 BILL DETAILS
-            _sectionTitle('Bill Details'),
+            _sectionTitle(isCancelled ? 'Cancellation Bill' : 'Bill Details'),
+
             FutureBuilder<double>(
               future: getInstrumentCost(hours),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const CircularProgressIndicator();
                 }
 
                 final instrumentCost = snapshot.data!;
+
                 final gst = (studioCost + instrumentCost) * 0.18;
-                final total = studioCost + instrumentCost + gst;
+                final totalCost = studioCost + instrumentCost + gst;
+
+                final cancelCharge =
+                    getCancellationCharge(totalCost);
+
+                if (isCancelled) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _row('Studio Charge',
+                          '₹${studioCost.toStringAsFixed(2)}'),
+                      _row('Instrument Rental',
+                          '₹${instrumentCost.toStringAsFixed(2)}'),
+                      _row('GST (18%)',
+                          '₹${gst.toStringAsFixed(2)}'),
+                      const Divider(),
+                      _row('Cancellation Charge',
+                          '₹${cancelCharge.toStringAsFixed(2)}'),
+                      const Divider(),
+                      _row(
+                          'Total Refund',
+                          '₹${(totalCost - cancelCharge).toStringAsFixed(2)}',
+                          bold: true),
+                    ],
+                  );
+                }
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _row('Studio Charge', '₹${studioCost.toStringAsFixed(2)}'),
-                    _row('Instrument Rental', '₹${instrumentCost.toStringAsFixed(2)}'),
+                    _row('Studio Charge',
+                        '₹${studioCost.toStringAsFixed(2)}'),
+                    _row('Instrument Rental',
+                        '₹${instrumentCost.toStringAsFixed(2)}'),
                     _row('GST (18%)', '₹${gst.toStringAsFixed(2)}'),
                     const Divider(),
-                    _row('Total Payable', '₹${total.toStringAsFixed(2)}', bold: true),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '* Additional charges may apply for overtime usage, damages, or late returns.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
+                    _row('Total Payable',
+                        '₹${totalCost.toStringAsFixed(2)}',
+                        bold: true),
                   ],
                 );
               },
@@ -189,7 +235,6 @@ class _BookingBillAndPolicyScreenState
 
             const Divider(height: 32),
 
-            /// 📜 POLICIES
             _sectionTitle('Studio Booking Policies'),
             _bullet('Studios are booked in hourly slots'),
             _bullet('Arrive at least 5 minutes before start time'),
@@ -201,7 +246,7 @@ class _BookingBillAndPolicyScreenState
             const SizedBox(height: 16),
 
             _sectionTitle('Cancellation Policy'),
-            Text(getCancellationPolicyText(), style: const TextStyle(height: 1.4)),
+            Text(getCancellationPolicyText()),
 
             const SizedBox(height: 16),
 
@@ -216,40 +261,27 @@ class _BookingBillAndPolicyScreenState
             CheckboxListTile(
               value: agreed,
               onChanged: (v) => setState(() => agreed = v ?? false),
-              title: const Text(
-                'I agree to the studio and rental policies',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              title: const Text('I agree to policies'),
               controlAffinity: ListTileControlAffinity.leading,
             ),
-
-            const SizedBox(height: 16),
 
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                //onPressed: agreed ? () {} : null,
                 onPressed: agreed
-    ? () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PaymentScreen(
-              bookingData: widget.bookingData,
-              studioData: widget.studioData,
-            ),
-          ),
-        );
-      }
-    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: const EdgeInsets.all(14),
-                ),
-                child: const Text(
-                  'Proceed to Pay',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
+                    ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PaymentScreen(
+                              bookingData: widget.bookingData,
+                              studioData: widget.studioData,
+                            ),
+                          ),
+                        );
+                      }
+                    : null,
+                child: const Text('Proceed to Pay'),
               ),
             ),
           ],
@@ -258,32 +290,27 @@ class _BookingBillAndPolicyScreenState
     );
   }
 
-  /// 🔹 UI helpers
-  Widget _sectionTitle(String t) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(t,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-  );
+  Widget _sectionTitle(String t) => Text(
+        t,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      );
 
-  Widget _row(String l, String r, {bool bold = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(l, style: TextStyle(fontWeight: bold ? FontWeight.bold : null)),
-        Text(r, style: TextStyle(fontWeight: bold ? FontWeight.bold : null)),
-      ],
-    ),
-  );
+  Widget _row(String l, String r, {bool bold = false}) => Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(l,
+              style:
+                  TextStyle(fontWeight: bold ? FontWeight.bold : null)),
+          Text(r,
+              style:
+                  TextStyle(fontWeight: bold ? FontWeight.bold : null)),
+        ],
+      );
 
-  Widget _bullet(String t) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 2),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('• '),
-        Expanded(child: Text(t)),
-      ],
-    ),
-  );
+  Widget _bullet(String t) => Row(
+        children: [
+          const Text('• '),
+          Expanded(child: Text(t)),
+        ],
+      );
 }

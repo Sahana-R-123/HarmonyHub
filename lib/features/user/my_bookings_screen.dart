@@ -21,24 +21,25 @@ class MyBookingsScreen extends StatelessWidget {
   }
 
   /// 🔹 Fetch studio name
+  Future<String> fetchStudioName(String studioId) async {
+    final doc = await FirebaseFirestore.instance
+        .collection('studios')
+        .doc(studioId)
+        .get();
 
-Future<String> fetchStudioName(String studioId) async {
-  final doc = await FirebaseFirestore.instance
-      .collection('studios')
-      .doc(studioId)
-      .get();
+    return doc.data()?['name'] ?? 'Unknown Studio';
+  }
 
-  return doc.data()?['name'] ?? 'Unknown Studio';
-}
-/// 🔹 Fetch FULL studio data (used for Bill & Policy screen)
-Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
-  final doc = await FirebaseFirestore.instance
-      .collection('studios')
-      .doc(studioId)
-      .get();
+  /// 🔹 Fetch FULL studio data (used for Bill & Policy screen)
+  Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
+    final doc = await FirebaseFirestore.instance
+        .collection('studios')
+        .doc(studioId)
+        .get();
 
-  return doc.data() ?? {};
-}
+    return doc.data() ?? {};
+  }
+
   /// 🔹 Fetch instrument names
   Future<Map<String, String>> fetchInstrumentNames({
     required String studioId,
@@ -69,7 +70,7 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
     return names;
   }
 
-  /// ❌ Cancel booking + restore instruments
+  /// ❌ Cancel booking (UPDATED: DO NOT DELETE, ONLY MARK CANCELLED)
   Future<void> cancelBooking({
     required BuildContext context,
     required String studioId,
@@ -90,7 +91,12 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
       );
     }
 
-    batch.delete(bookingDoc.reference);
+    // ✅ UPDATED: instead of deleting booking, mark as cancelled
+    batch.update(bookingDoc.reference, {
+      'status': 'cancelled',
+      'cancelledAt': FieldValue.serverTimestamp(),
+    });
+
     await batch.commit();
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -105,7 +111,6 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Bookings'),
-        //backgroundColor: Colors.deepPurple,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -130,7 +135,6 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
               final data = doc.data() as Map<String, dynamic>;
 
               final studioId = doc.reference.parent.parent!.id;
-              final bookingId = doc.id;
 
               final instruments =
                   (data['selectedInstruments'] ?? []) as List<dynamic>;
@@ -153,6 +157,7 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+
                       /// 🏢 STUDIO NAME
                       FutureBuilder<String>(
                         future: fetchStudioName(studioId),
@@ -162,7 +167,6 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              //color: Colors.deepPurple,
                             ),
                           );
                         },
@@ -170,7 +174,6 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
 
                       const SizedBox(height: 4),
 
-                      /// 👤 USER
                       Text(
                         data['userName'] ?? 'Unknown',
                         style: const TextStyle(
@@ -181,7 +184,6 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
 
                       const SizedBox(height: 6),
 
-                      /// 📅 DATE + TIME
                       Row(
                         children: [
                           const Icon(Icons.calendar_today, size: 16),
@@ -206,7 +208,6 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
 
                       const SizedBox(height: 8),
 
-                      /// 🎸 INSTRUMENTS
                       const Text(
                         'Instruments:',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -233,7 +234,6 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
 
                       const SizedBox(height: 10),
 
-                      /// ⏱ STATUS
                       Chip(
                         label: Text(status.toUpperCase()),
                         backgroundColor: status == 'confirmed'
@@ -242,36 +242,38 @@ Future<Map<String, dynamic>> fetchStudioData(String studioId) async {
                       ),
 
                       const Divider(),
-                      const SizedBox(height: 6),
-const Divider(),
-const SizedBox(height: 6),
 
-// ✅ Only show "View Bill" if booking is approved
-if (status == 'approved')
-  SizedBox(
-    width: double.infinity,
-    child: ElevatedButton(
-      child: const Text('View Bill'),
-      onPressed: () async {
-        // ✅ Use studioId derived from Firestore path
-        final studioData = await fetchStudioData(studioId);
+                      /// ✅ SHOW BILL FOR BOTH APPROVED AND CANCELLED
+                      if (status == 'approved' || status == 'cancelled')
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            child: Text(
+                              status == 'cancelled'
+                                  ? 'View Cancellation Bill'
+                                  : 'View Bill',
+                            ),
+                            onPressed: () async {
+                              final studioData =
+                                  await fetchStudioData(studioId);
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BookingBillAndPolicyScreen(
-              bookingData: data,
-              studioData: {
-                ...studioData,
-                'studioId': studioId, // ✅ explicitly passed
-              },
-            ),
-          ),
-        );
-      },
-    ),
-  ),
-                      /// ✏️ EDIT / ❌ CANCEL
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      BookingBillAndPolicyScreen(
+                                    bookingData: data,
+                                    studioData: {
+                                      ...studioData,
+                                      'studioId': studioId,
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [

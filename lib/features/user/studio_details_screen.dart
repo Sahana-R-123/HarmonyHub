@@ -491,6 +491,7 @@ StreamBuilder<DocumentSnapshot>(
                     ),
                   ),
                 ),
+                const SizedBox(height: 80),
               ],
             ),
           );

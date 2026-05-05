@@ -61,7 +61,6 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
     }
   }
 
-  /// 📅 Date picker (no past)
   Future<void> pickDate() async {
     final now = DateTime.now();
     final date = await showDatePicker(
@@ -73,7 +72,6 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
     if (date != null) setState(() => selectedDate = date);
   }
 
-  /// ⏰ Time picker (safe cancel)
   Future<TimeOfDay?> pickTime(TimeOfDay initial) async {
     final picked = await showTimePicker(
       context: context,
@@ -100,7 +98,6 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
     return picked;
   }
 
-  /// ⛔ Conflict check (excluding current booking)
   Future<bool> hasConflict(DateTime start, DateTime end) async {
     final bookings = await FirebaseFirestore.instance
         .collection('studios')
@@ -135,13 +132,11 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
     return false;
   }
 
-  /// 💾 Update booking
   Future<void> updateBooking() async {
     if (!_formKey.currentState!.validate() ||
         selectedDate == null ||
         startTime == null ||
-        endTime == null ||
-        selectedInstruments.isEmpty) {
+        endTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Complete all fields')),
       );
@@ -184,7 +179,6 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
     final studioRef =
         FirebaseFirestore.instance.collection('studios').doc(widget.studioId);
 
-    /// Restore old instruments
     final oldInstruments = List<Map<String, dynamic>>.from(
       widget.bookingDoc['selectedInstruments'],
     );
@@ -196,7 +190,6 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
       );
     }
 
-    /// Reduce new instruments
     for (final e in selectedInstruments.entries) {
       batch.update(
         studioRef.collection('instruments').doc(e.key),
@@ -232,17 +225,13 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
         body: const Center(
           child: Text(
             'This booking has already started and cannot be edited.',
-            style: TextStyle(fontSize: 16),
           ),
         ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Booking'),
-        //backgroundColor: Colors.deepPurple,
-      ),
+      appBar: AppBar(title: const Text('Edit Booking')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -251,19 +240,15 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
             TextFormField(
               controller: nameCtrl,
               decoration: const InputDecoration(labelText: 'Name'),
-              validator: (v) => v!.isEmpty ? 'Required' : null,
             ),
             TextFormField(
               controller: peopleCtrl,
-              decoration:
-                  const InputDecoration(labelText: 'Number of People'),
+              decoration: const InputDecoration(labelText: 'Number of People'),
               keyboardType: TextInputType.number,
-              validator: (v) => v!.isEmpty ? 'Required' : null,
             ),
             TextFormField(
               controller: purposeCtrl,
               decoration: const InputDecoration(labelText: 'Purpose'),
-              validator: (v) => v!.isEmpty ? 'Required' : null,
             ),
             DropdownButtonFormField(
               value: genre,
@@ -275,11 +260,10 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
                 DropdownMenuItem(value: 'Other', child: Text('Other')),
               ],
               onChanged: (v) => setState(() => genre = v!),
-              decoration: const InputDecoration(labelText: 'Genre'),
             ),
+
             const SizedBox(height: 12),
 
-            /// DATE
             ElevatedButton(
               onPressed: pickDate,
               child: Text(
@@ -289,20 +273,16 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
               ),
             ),
 
-            /// START TIME
             ElevatedButton(
               onPressed: () async {
                 final t = await pickTime(startTime ?? TimeOfDay.now());
                 if (t != null) setState(() => startTime = t);
               },
               child: Text(
-                startTime == null
-                    ? 'Start Time'
-                    : startTime!.format(context),
+                startTime == null ? 'Start Time' : startTime!.format(context),
               ),
             ),
 
-            /// END TIME
             ElevatedButton(
               onPressed: () async {
                 final t = await pickTime(endTime ?? TimeOfDay.now());
@@ -314,10 +294,7 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
             ),
 
             const SizedBox(height: 20),
-            const Text(
-              'Select Instruments',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            const Text('Select Instruments'),
 
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -327,21 +304,51 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const SizedBox();
+
                 return Column(
                   children: snapshot.data!.docs.map((doc) {
-                    return CheckboxListTile(
+                    final qty = doc['quantity'];
+
+                    return ListTile(
                       title: Text(doc['name']),
-                      subtitle: Text('Available: ${doc['quantity']}'),
-                      value: selectedInstruments.containsKey(doc.id),
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            selectedInstruments[doc.id] = 1;
-                          } else {
-                            selectedInstruments.remove(doc.id);
-                          }
-                        });
-                      },
+                      subtitle: Text('Available: $qty'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove),
+                            onPressed: selectedInstruments[doc.id] == null
+                                ? null
+                                : () {
+                                    setState(() {
+                                      final current =
+                                          selectedInstruments[doc.id] ?? 0;
+
+                                      if (current <= 1) {
+                                        selectedInstruments.remove(doc.id);
+                                      } else {
+                                        selectedInstruments[doc.id] =
+                                            current - 1;
+                                      }
+                                    });
+                                  },
+                          ),
+                          Text(
+                            '${selectedInstruments[doc.id] ?? 0}',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: (selectedInstruments[doc.id] ?? 0) < qty
+                                ? () {
+                                    setState(() {
+                                      selectedInstruments[doc.id] =
+                                          (selectedInstruments[doc.id] ?? 0) + 1;
+                                    });
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
                     );
                   }).toList(),
                 );
@@ -349,10 +356,13 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
             ),
 
             const SizedBox(height: 24),
+
             ElevatedButton(
               onPressed: updateBooking,
               child: const Text('Update Booking'),
             ),
+
+            const SizedBox(height: 80),
           ],
         ),
       ),
