@@ -45,5 +45,19 @@ app.*.map.json
 /android/app/release
 
 lib/firebase_options.dart
-app/google-services.json
+android/app/google-services.json
 serviceAccountKey.json
+
+ios/Runner/GoogleService-Info.plist
+
+# Keystore (VERY important)
+*.jks
+key.properties
+
+# Env / secrets
+.env
+
+# Flutter generated plugin files
+**/generated_plugin_registrant.*
+**/GeneratedPluginRegistrant.*
+**/generated_plugins.cmake

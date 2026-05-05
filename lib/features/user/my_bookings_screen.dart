@@ -280,17 +280,19 @@ class MyBookingsScreen extends StatelessWidget {
                           TextButton.icon(
                             icon: const Icon(Icons.edit),
                             label: const Text('Edit'),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => EditBookingScreen(
-                                    studioId: studioId,
-                                    bookingDoc: doc,
-                                  ),
-                                ),
-                              );
-                            },
+                            onPressed: status == 'cancelled'
+                                ? null
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => EditBookingScreen(
+                                          studioId: studioId,
+                                          bookingDoc: doc,
+                                        ),
+                                      ),
+                                    );
+                                  },
                           ),
                           TextButton.icon(
                             icon: const Icon(Icons.cancel, color: Colors.red),
@@ -298,37 +300,39 @@ class MyBookingsScreen extends StatelessWidget {
                               'Cancel',
                               style: TextStyle(color: Colors.red),
                             ),
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => AlertDialog(
-                                  title: const Text('Cancel Booking'),
-                                  content: const Text(
-                                    'Are you sure you want to cancel this booking?',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, false),
-                                      child: const Text('No'),
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, true),
-                                      child: const Text('Yes'),
-                                    ),
-                                  ],
-                                ),
-                              );
+                            onPressed: status == 'cancelled'
+                                ? null
+                                : () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text('Cancel Booking'),
+                                        content: const Text(
+                                          'Are you sure you want to cancel this booking?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('No'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text('Yes'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
 
-                              if (confirm == true) {
-                                await cancelBooking(
-                                  context: context,
-                                  studioId: studioId,
-                                  bookingDoc: doc,
-                                );
-                              }
-                            },
+                                    if (confirm == true) {
+                                      await cancelBooking(
+                                        context: context,
+                                        studioId: studioId,
+                                        bookingDoc: doc,
+                                      );
+                                    }
+                                  },
                           ),
                         ],
                       ),

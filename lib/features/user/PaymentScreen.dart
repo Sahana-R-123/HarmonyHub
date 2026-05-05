@@ -122,56 +122,54 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   /// ================= PAYMENT UI =================
-  Widget _buildPaymentUI() {
-    return Padding(
-      key: const ValueKey("payment"),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              "Select Payment Method",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+Widget _buildPaymentUI() {
+  return SingleChildScrollView(
+    key: const ValueKey("payment"),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Select Payment Method",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+
+        const SizedBox(height: 16),
+
+        _paymentOption("UPI", Icons.qr_code),
+        _paymentOption("Net Banking", Icons.account_balance),
+        _paymentOption("Debit/Credit Card", Icons.credit_card),
+        _paymentOption("Cash on Arrival", Icons.money),
+
+        const SizedBox(height: 40), // spacing before button
+
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: isProcessing ? null : launchPaymentApp,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              padding: const EdgeInsets.all(14),
             ),
-          ),
-
-          const SizedBox(height: 16),
-
-          _paymentOption("UPI", Icons.qr_code),
-          _paymentOption("Net Banking", Icons.account_balance),
-          _paymentOption("Debit/Credit Card", Icons.credit_card),
-          _paymentOption("Cash on Arrival", Icons.money),
-
-          const Spacer(),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isProcessing ? null : launchPaymentApp,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                padding: const EdgeInsets.all(14),
-              ),
-              child: isProcessing
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text(
-                      "Confirm Payment Method",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+            child: isProcessing
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
                     ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
+                  )
+                : const Text(
+                    "Confirm Payment Method",
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   /// ================= SUCCESS UI =================
   Widget _buildSuccessUI() {

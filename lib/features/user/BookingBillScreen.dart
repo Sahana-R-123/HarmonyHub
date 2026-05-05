@@ -111,7 +111,6 @@ class _BookingBillAndPolicyScreenState
     return rate * hours;
   }
 
-  /// 🔥 FIXED: uses TOTAL COST instead of studio only
   double getCancellationCharge(double totalCost) {
     final policy = widget.studioData['cancellationPolicy'];
 
@@ -235,55 +234,64 @@ class _BookingBillAndPolicyScreenState
 
             const Divider(height: 32),
 
-            _sectionTitle('Studio Booking Policies'),
-            _bullet('Studios are booked in hourly slots'),
-            _bullet('Arrive at least 5 minutes before start time'),
-            _bullet('Late arrival does not extend booking duration'),
-            _bullet('Extra usage may incur additional charges'),
-            _bullet('Damage to studio equipment will be charged'),
-            _bullet('Valid ID may be required'),
+            /// ❌ HIDE these if cancelled
+            if (!isCancelled) ...[
+              _sectionTitle('Studio Booking Policies'),
+              _bullet('Studios are booked in hourly slots'),
+              _bullet('Arrive at least 5 minutes before start time'),
+              _bullet('Late arrival does not extend booking duration'),
+              _bullet('Extra usage may incur additional charges'),
+              _bullet('Damage to studio equipment will be charged'),
+              _bullet('Valid ID may be required'),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
 
+            /// ✅ ALWAYS show cancellation policy
             _sectionTitle('Cancellation Policy'),
             Text(getCancellationPolicyText()),
 
-            const SizedBox(height: 16),
+            /// ❌ HIDE if cancelled
+            if (!isCancelled) ...[
+              const SizedBox(height: 16),
 
-            _sectionTitle('Instrument Rental Policies'),
-            _bullet('Return instruments in original condition'),
-            _bullet('Security deposit may apply (refundable)'),
-            _bullet('Late returns incur extra charges'),
-            _bullet('Damage or loss will be charged'),
+              _sectionTitle('Instrument Rental Policies'),
+              _bullet('Return instruments in original condition'),
+              _bullet('Security deposit may apply (refundable)'),
+              _bullet('Late returns incur extra charges'),
+              _bullet('Damage or loss will be charged'),
 
-            const Divider(height: 32),
+              const Divider(height: 32),
 
-            CheckboxListTile(
-              value: agreed,
-              onChanged: (v) => setState(() => agreed = v ?? false),
-              title: const Text('I agree to policies'),
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: agreed
-                    ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PaymentScreen(
-                              bookingData: widget.bookingData,
-                              studioData: widget.studioData,
-                            ),
-                          ),
-                        );
-                      }
-                    : null,
-                child: const Text('Proceed to Pay'),
+              CheckboxListTile(
+                value: agreed,
+                onChanged: (v) => setState(() => agreed = v ?? false),
+                title: const Text('I agree to policies'),
+                controlAffinity: ListTileControlAffinity.leading,
               ),
-            ),
+
+              SafeArea(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: agreed
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PaymentScreen(
+                                  bookingData: widget.bookingData,
+                                  studioData: widget.studioData,
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
+                    child: const Text('Proceed to Pay'),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
