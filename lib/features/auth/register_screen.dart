@@ -47,6 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 40),
           child: Column(
             children: [
               const SizedBox(height: 20),
