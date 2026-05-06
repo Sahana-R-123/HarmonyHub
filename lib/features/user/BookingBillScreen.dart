@@ -22,6 +22,20 @@ class _BookingBillAndPolicyScreenState
     extends State<BookingBillAndPolicyScreen> {
   bool agreed = false;
 
+  late Future<DocumentSnapshot> _bookingFuture;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _bookingFuture = FirebaseFirestore.instance
+        .collection('studios')
+        .doc(widget.studioData['studioId'])
+        .collection('bookings')
+        .doc(widget.bookingData['bookingId'] ?? widget.bookingData['id'])
+        .get();
+  }
+
   double getHours() {
     final start =
         (widget.bookingData['startTime'] as Timestamp).toDate();
@@ -97,7 +111,8 @@ class _BookingBillAndPolicyScreenState
       return 0.0;
     }
 
-    List<Map<String, dynamic>> rooms = List<Map<String, dynamic>>.from(prices);
+    List<Map<String, dynamic>> rooms =
+        List<Map<String, dynamic>>.from(prices);
 
     rooms.sort((a, b) =>
         (a['pricePerHour'] ?? 0).compareTo(b['pricePerHour'] ?? 0));
@@ -111,31 +126,74 @@ class _BookingBillAndPolicyScreenState
     return rate * hours;
   }
 
-  double getCancellationCharge(double totalCost) {
+  // ✅ CHANGED ONLY THIS PART (MATCHES ADMIN LOGIC)
+  Future<double> getCancellationCharge(double totalCost) async {
+    final String? studioId = widget.studioData['studioId'];
+    final String? bookingId =
+        widget.bookingData['bookingId'] ?? widget.bookingData['id'];
+
+    if (studioId == null || bookingId == null) {
+      return totalCost * 0.5;
+    }
+
+    final bookingRef = FirebaseFirestore.instance
+        .collection('studios')
+        .doc(studioId)
+        .collection('bookings')
+        .doc(bookingId);
+
+    final doc = await bookingRef.get();
+
+    if (doc.exists &&
+        doc.data() != null &&
+        doc.data()!.containsKey('cancellationCharge')) {
+      return (doc.data()!['cancellationCharge'] as num).toDouble();
+    }
+
     final policy = widget.studioData['cancellationPolicy'];
 
+    double charge;
+
     if (policy == null || policy is! Map) {
-      return totalCost * 0.2;
-    }
-
-    final start =
-        (widget.bookingData['startTime'] as Timestamp).toDate();
-
-    final now = DateTime.now();
-    final hoursBefore = start.difference(now).inHours;
-
-    final fullRefundHours = policy['fullRefundBeforeHours'] ?? 24;
-    final partialRefundHours = policy['partialRefundBeforeHours'] ?? 12;
-    final partialRefundPercent =
-        policy['partialRefundPercentage'] ?? 50;
-
-    if (hoursBefore >= fullRefundHours) {
-      return 0;
-    } else if (hoursBefore >= partialRefundHours) {
-      return totalCost * (100 - partialRefundPercent) / 100;
+      charge = totalCost * 0.5;
     } else {
-      return totalCost;
+      final start =
+          (widget.bookingData['startTime'] as Timestamp).toDate();
+
+      final Timestamp? cancelledAtTs =
+          doc.data()?['cancelledAt'];
+
+      final DateTime cancelledAt =
+          cancelledAtTs != null ? cancelledAtTs.toDate() : DateTime.now();
+
+      final hoursBefore =
+          start.difference(cancelledAt).inHours;
+
+      final fullRefundHours =
+          policy['fullRefundBeforeHours'] ?? 24;
+      final partialRefundHours =
+          policy['partialRefundBeforeHours'] ?? 12;
+      final partialRefundPercent =
+          policy['partialRefundPercentage'] ?? 50;
+
+      if (hoursBefore >= fullRefundHours) {
+        charge = 0;
+      } else if (hoursBefore >= partialRefundHours &&
+          hoursBefore < fullRefundHours) {
+        charge = totalCost * (100 - partialRefundPercent) / 100;
+      } else {
+        charge = totalCost;
+      }
     }
+
+    if (!doc.data()!.containsKey('cancellationCharge')) {
+      await bookingRef.set({
+        'cancellationCharge': charge,
+        'cancelledAt': Timestamp.now(),
+      }, SetOptions(merge: true));
+    }
+
+    return charge;
   }
 
   @override
@@ -144,174 +202,203 @@ class _BookingBillAndPolicyScreenState
     final studio = widget.studioData;
 
     final double hours = getHours();
-
     final bool isCancelled = booking['status'] == 'cancelled';
 
     final double studioCost = getStudioCostByPeople(hours);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Booking Confirmation')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return FutureBuilder<DocumentSnapshot>(
+      future: _bookingFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-            _sectionTitle('Studio Details'),
-            Text(studio['name'] ?? ''),
-            Text(studio['fullAddress'] ?? ''),
-            Text('Contact: ${studio['contact'] ?? '-'}'),
+        final data = snapshot.data!.data();
+        final bookingData =
+            (data != null && data is Map<String, dynamic>)
+                ? data
+                : widget.bookingData;
 
-            const Divider(height: 32),
+        return Scaffold(
+          appBar: AppBar(title: const Text('Booking Confirmation')),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
 
-            _sectionTitle('Booking Details'),
-            Text(
-              'Date: ${DateFormat('dd MMM yyyy').format((booking['date'] as Timestamp).toDate())}',
-            ),
-            Text(
-              'Time: ${DateFormat('hh:mm a').format((booking['startTime'] as Timestamp).toDate())} - '
-              '${DateFormat('hh:mm a').format((booking['endTime'] as Timestamp).toDate())}',
-            ),
-            Text('Duration: ${hours.toStringAsFixed(1)} hrs'),
+                _sectionTitle('Studio Details'),
+                Text(studio['name'] ?? ''),
+                Text(studio['fullAddress'] ?? ''),
+                Text('Contact: ${studio['contact'] ?? '-'}'),
 
-            const Divider(height: 32),
+                const Divider(height: 32),
 
-            _sectionTitle(isCancelled ? 'Cancellation Bill' : 'Bill Details'),
-
-            FutureBuilder<double>(
-              future: getInstrumentCost(hours),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const CircularProgressIndicator();
-                }
-
-                final instrumentCost = snapshot.data!;
-
-                final gst = (studioCost + instrumentCost) * 0.18;
-                final totalCost = studioCost + instrumentCost + gst;
-
-                final cancelCharge =
-                    getCancellationCharge(totalCost);
-
-                if (isCancelled) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _row('Studio Charge',
-                          '₹${studioCost.toStringAsFixed(2)}'),
-                      _row('Instrument Rental',
-                          '₹${instrumentCost.toStringAsFixed(2)}'),
-                      _row('GST (18%)',
-                          '₹${gst.toStringAsFixed(2)}'),
-                      const Divider(),
-                      _row('Cancellation Charge',
-                          '₹${cancelCharge.toStringAsFixed(2)}'),
-                      const Divider(),
-                      _row(
-                          'Total Refund',
-                          '₹${(totalCost - cancelCharge).toStringAsFixed(2)}',
-                          bold: true),
-                    ],
-                  );
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _row('Studio Charge',
-                        '₹${studioCost.toStringAsFixed(2)}'),
-                    _row('Instrument Rental',
-                        '₹${instrumentCost.toStringAsFixed(2)}'),
-                    _row('GST (18%)', '₹${gst.toStringAsFixed(2)}'),
-                    const Divider(),
-                    _row('Total Payable',
-                        '₹${totalCost.toStringAsFixed(2)}',
-                        bold: true),
-                  ],
-                );
-              },
-            ),
-
-            const Divider(height: 32),
-
-            /// ❌ HIDE these if cancelled
-            if (!isCancelled) ...[
-              _sectionTitle('Studio Booking Policies'),
-              _bullet('Studios are booked in hourly slots'),
-              _bullet('Arrive at least 5 minutes before start time'),
-              _bullet('Late arrival does not extend booking duration'),
-              _bullet('Extra usage may incur additional charges'),
-              _bullet('Damage to studio equipment will be charged'),
-              _bullet('Valid ID may be required'),
-
-              const SizedBox(height: 16),
-            ],
-
-            /// ✅ ALWAYS show cancellation policy
-            _sectionTitle('Cancellation Policy'),
-            Text(getCancellationPolicyText()),
-
-            /// ❌ HIDE if cancelled
-            if (!isCancelled) ...[
-              const SizedBox(height: 16),
-
-              _sectionTitle('Instrument Rental Policies'),
-              _bullet('Return instruments in original condition'),
-              _bullet('Security deposit may apply (refundable)'),
-              _bullet('Late returns incur extra charges'),
-              _bullet('Damage or loss will be charged'),
-
-              const Divider(height: 32),
-
-              CheckboxListTile(
-                value: agreed,
-                onChanged: (v) => setState(() => agreed = v ?? false),
-                title: const Text('I agree to policies'),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-
-              SafeArea(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: agreed
-                        ? () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => PaymentScreen(
-                                  bookingData: widget.bookingData,
-                                  studioData: widget.studioData,
-                                ),
-                              ),
-                            );
-                          }
-                        : null,
-                    child: const Text('Proceed to Pay'),
-                  ),
+                _sectionTitle('Booking Details'),
+                Text(
+                  'Date: ${DateFormat('dd MMM yyyy').format((booking['date'] as Timestamp).toDate())}',
                 ),
-              ),
-            ],
-          ],
-        ),
-      ),
+                Text(
+                  'Time: ${DateFormat('hh:mm a').format((booking['startTime'] as Timestamp).toDate())} - '
+                  '${DateFormat('hh:mm a').format((booking['endTime'] as Timestamp).toDate())}',
+                ),
+                Text('Duration: ${hours.toStringAsFixed(1)} hrs'),
+
+                const Divider(height: 32),
+
+                _sectionTitle(
+                    isCancelled ? 'Cancellation Bill' : 'Bill Details'),
+
+                FutureBuilder<double>(
+                  future: getInstrumentCost(hours),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const CircularProgressIndicator();
+                    }
+
+                    final instrumentCost = snapshot.data!;
+                    final gst =
+                        (studioCost + instrumentCost) * 0.18;
+                    final totalCost =
+                        studioCost + instrumentCost + gst;
+
+                    if (isCancelled) {
+                      return FutureBuilder<double>(
+                        future: getCancellationCharge(totalCost),
+                        builder: (context, cancelSnap) {
+                          if (!cancelSnap.hasData) {
+                            return const CircularProgressIndicator();
+                          }
+
+                          final cancelCharge = cancelSnap.data!;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _row('Studio Charge',
+                                  '₹${studioCost.toStringAsFixed(2)}'),
+                              _row('Instrument Rental',
+                                  '₹${instrumentCost.toStringAsFixed(2)}'),
+                              _row('GST (18%)',
+                                  '₹${gst.toStringAsFixed(2)}'),
+                              const Divider(),
+                              _row('Cancellation Charge',
+                                  '₹${cancelCharge.toStringAsFixed(2)}'),
+                              const Divider(),
+                              _row(
+                                'Total Refund',
+                                '₹${(totalCost - cancelCharge).toStringAsFixed(2)}',
+                                bold: true,
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _row('Studio Charge',
+                            '₹${studioCost.toStringAsFixed(2)}'),
+                        _row('Instrument Rental',
+                            '₹${instrumentCost.toStringAsFixed(2)}'),
+                        _row('GST (18%)',
+                            '₹${gst.toStringAsFixed(2)}'),
+                        const Divider(),
+                        _row('Total Payable',
+                            '₹${totalCost.toStringAsFixed(2)}',
+                            bold: true),
+                      ],
+                    );
+                  },
+                ),
+
+                const Divider(height: 32),
+
+                if (!isCancelled) ...[
+                  _sectionTitle('Studio Booking Policies'),
+                  _bullet('Studios are booked in hourly slots'),
+                  _bullet('Arrive at least 5 minutes before start time'),
+                  _bullet('Late arrival does not extend booking duration'),
+                  _bullet('Extra usage may incur additional charges'),
+                  _bullet('Damage to studio equipment will be charged'),
+                  _bullet('Valid ID may be required'),
+
+                  const SizedBox(height: 16),
+                ],
+
+                _sectionTitle('Cancellation Policy'),
+                Text(getCancellationPolicyText()),
+
+                if (!isCancelled) ...[
+                  const SizedBox(height: 16),
+
+                  _sectionTitle('Instrument Rental Policies'),
+                  _bullet('Return instruments in original condition'),
+                  _bullet('Security deposit may apply (refundable)'),
+                  _bullet('Late returns incur extra charges'),
+                  _bullet('Damage or loss will be charged'),
+
+                  const Divider(height: 32),
+
+                  CheckboxListTile(
+                    value: agreed,
+                    onChanged: (v) =>
+                        setState(() => agreed = v ?? false),
+                    title: const Text('I agree to policies'),
+                  ),
+
+                  SafeArea(
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: agreed
+                            ? () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        PaymentScreen(
+                                      bookingData:
+                                          widget.bookingData,
+                                      studioData:
+                                          widget.studioData,
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
+                        child: const Text('Proceed to Pay'),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _sectionTitle(String t) => Text(
         t,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+            fontSize: 18, fontWeight: FontWeight.bold),
       );
 
   Widget _row(String l, String r, {bool bold = false}) => Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(l,
-              style:
-                  TextStyle(fontWeight: bold ? FontWeight.bold : null)),
+              style: TextStyle(
+                  fontWeight: bold ? FontWeight.bold : null)),
           Text(r,
-              style:
-                  TextStyle(fontWeight: bold ? FontWeight.bold : null)),
+              style: TextStyle(
+                  fontWeight: bold ? FontWeight.bold : null)),
         ],
       );
 

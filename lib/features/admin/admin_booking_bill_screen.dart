@@ -64,7 +64,6 @@ double _hours() {
   return end.difference(start).inMinutes / 60;
 }
 
-/// 🎯 room selection
 Map<String, dynamic> _selectRoom() {
   final people = (widget.bookingData['numberOfPeople'] ?? 1);
 
@@ -111,50 +110,82 @@ Future<double> _instrumentCost(double hours) async {
   return total;
 }
 
-/// ✅ UPDATED: now uses TOTAL COST (studio + instruments + GST)
-double _calculateCancellationCharge(
+/// ✅ FIXED: SAFE bookingId handling (THIS WAS THE BUG)
+Future<double> _calculateCancellationCharge(
     double studioCost,
     double instCost,
     double hours,
-) {
+) async {
+
+  final studioId = widget.studioData['studioId'];
+
+  // 🔴 FIX: fallback-safe bookingId
+  final bookingId = widget.bookingData['bookingId'] ??
+      widget.bookingData['id'];
+
+  if (bookingId == null) {
+    final gst = (studioCost + instCost) * 0.18;
+    return (studioCost + instCost + gst) * 0.5;
+  }
+
+  final bookingRef = FirebaseFirestore.instance
+      .collection('studios')
+      .doc(studioId)
+      .collection('bookings')
+      .doc(bookingId);
+
+  final doc = await bookingRef.get();
+
+  if (doc.exists &&
+      doc.data() != null &&
+      doc.data()!.containsKey('cancellationCharge')) {
+    return (doc['cancellationCharge'] as num).toDouble();
+  }
+
   final dynamic rawPolicy = widget.studioData['cancellationPolicy'];
 
   final gst = (studioCost + instCost) * 0.18;
   final totalCost = studioCost + instCost + gst;
 
+  double charge;
+
   if (rawPolicy == null || rawPolicy is! Map) {
-    return totalCost * 0.5; // fallback
+    charge = totalCost * 0.5;
+  } else {
+    final int fullRefundHours =
+        rawPolicy['fullRefundBeforeHours'] ?? 24;
+    final int partialRefundHours =
+        rawPolicy['partialRefundBeforeHours'] ?? 12;
+    final int partialRefundPercent =
+        rawPolicy['partialRefundPercentage'] ?? 50;
+
+    final bookingTime =
+        (widget.bookingData['startTime'] as Timestamp).toDate();
+
+    final Timestamp? cancelledAtTs = doc.data()?['cancelledAt'];
+final DateTime cancelledAt =
+    cancelledAtTs != null ? cancelledAtTs.toDate() : DateTime.now();
+
+final diffHours = bookingTime.difference(cancelledAt).inHours;
+
+    if (diffHours >= fullRefundHours) {
+      charge = 0;
+    } else if (diffHours >= partialRefundHours &&
+        diffHours < fullRefundHours) {
+      charge = totalCost * (100 - partialRefundPercent) / 100;
+    } else {
+      charge = totalCost;
+    }
   }
 
-  final int partialRefundPercent =
-      rawPolicy['partialRefundPercentage'] ?? 50;
+  if (!doc.data()!.containsKey('cancellationCharge')) {
+  await bookingRef.set({
+    'cancellationCharge': charge,
+    'cancelledAt': Timestamp.now(),
+  }, SetOptions(merge: true));
+}
 
-  final int fullRefundHours =
-      rawPolicy['fullRefundBeforeHours'] ?? 24;
-
-  final int partialRefundHours =
-      rawPolicy['partialRefundBeforeHours'] ?? 12;
-
-  final bookingTime =
-      (widget.bookingData['startTime'] as Timestamp).toDate();
-
-  final now = DateTime.now();
-
-  final diffHours = bookingTime.difference(now).inHours;
-
-  // FULL REFUND → no charge
-  if (diffHours >= fullRefundHours) {
-    return 0;
-  }
-
-  // PARTIAL REFUND → applied on TOTAL COST (FIXED)
-  if (diffHours >= partialRefundHours &&
-      diffHours < fullRefundHours) {
-    return totalCost * (100 - partialRefundPercent) / 100;
-  }
-
-  // NO REFUND → full amount charged
-  return totalCost;
+  return charge;
 }
 
 @override
@@ -192,7 +223,6 @@ Widget build(BuildContext context) {
 
           const Divider(height: 32),
 
-          /// 🚨 CANCELLED BOOKING VIEW
           if (isCancelled)
             FutureBuilder<double>(
               future: _instrumentCost(hours),
@@ -203,26 +233,32 @@ Widget build(BuildContext context) {
 
                 final instCost = snap.data!;
                 final gst = (studioCost + instCost) * 0.18;
+                final totalCost = studioCost + instCost + gst;
 
-                final cancelCharge =
-                    _calculateCancellationCharge(studioCost, instCost, hours);
+                return FutureBuilder<double>(
+                  future: _calculateCancellationCharge(
+                      studioCost, instCost, hours),
+                  builder: (context, cancelSnap) {
+                    if (!cancelSnap.hasData) {
+                      return const CircularProgressIndicator();
+                    }
 
-                final totalPaid = studioCost + instCost + gst;
+                    final cancelCharge = cancelSnap.data!;
+                    final refund = totalCost - cancelCharge;
 
-                final totalRefund =
-                    totalPaid - cancelCharge;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _title('Cancellation Bill'),
-                    _row('Studio Charge', studioCost, bold: true),
-                    _row('Instrument Charge', instCost, bold: true),
-                    _row('GST (18%)', gst, bold: true),
-                    _row('Cancellation Charge', cancelCharge, bold: true),
-                    const Divider(),
-                    _row('Total Refund', totalRefund, bold: true),
-                  ],
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _title('Cancellation Bill'),
+                        _row('Studio Charge', studioCost, bold: true),
+                        _row('Instrument Charge', instCost, bold: true),
+                        _row('GST (18%)', gst, bold: true),
+                        _row('Cancellation Charge', cancelCharge, bold: true),
+                        const Divider(),
+                        _row('Total Refund', refund, bold: true),
+                      ],
+                    );
+                  },
                 );
               },
             )
